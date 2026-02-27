@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-//import 'components/mobile_layout.dart'; // Giữ lại để dùng sau này
+//import 'components/mobile_layout.dart';
 //import 'pages/auth/login_page.dart';
 import 'pages/auth/splash_page.dart';
+import 'package:bot_toast/bot_toast.dart';
 
 void main() {
   // Chỉnh màu thanh status bar trong suốt cho đẹp
@@ -21,6 +22,8 @@ class EcoApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      builder: BotToastInit(), 
+      navigatorObservers: [BotToastNavigatorObserver()],
       debugShowCheckedModeBanner: false,
       title: 'Eco App',
       theme: ThemeData(
@@ -28,9 +31,6 @@ class EcoApp extends StatelessWidget {
         fontFamily: 'Roboto',
         useMaterial3: true,
       ),
-
-      // --- 2. SỬA Ở ĐÂY ---
-      // Đặt SplashPage làm màn hình đầu tiên khi mở App
       home: const SplashPage(),
     );
   }

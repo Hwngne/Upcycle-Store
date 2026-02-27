@@ -67,8 +67,12 @@ dependencies:
   table_calendar: ^3.0.9
 
   socket_io_client: ^2.0.3+1
+  
   cached_network_image: ^3.4.1
+
   photo_view: ^0.15.0
+
+  bot_toast: ^4.1.3
 
   
 

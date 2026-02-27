@@ -4,7 +4,12 @@ import '../pages/student/student_home.dart';
 import '../pages/common/forum_page.dart';
 import '../pages/student/rank_page.dart';
 import '../pages/common/profile_page.dart';
-import '../pages/common/camera_page.dart';
+import '../pages/common/camera_ai_page.dart';
+import 'package:bot_toast/bot_toast.dart';
+import '../services/socket_service.dart';
+import '../services/user_service.dart';
+import '../pages/club/club_home_page.dart';
+import '../services/notification_service.dart';
 
 class MobileLayout extends StatefulWidget {
   const MobileLayout({super.key});
@@ -14,20 +19,95 @@ class MobileLayout extends StatefulWidget {
 }
 
 class _MobileLayoutState extends State<MobileLayout> {
-  int _currentIndex = 0; // Biến theo dõi tab hiện tại
+  int _currentIndex = 0;
 
-  // Danh sách các màn hình tương ứng với Menu
-  final List<Widget> _pages = [
-    const StudentHome(), // Tab 0: Trang chủ
-    const ForumPage(), // Tab 1: Diễn đàn
-    const CameraPage(), // Tab 2
-    const RankPage(), // Tab 3
-    const ProfilePage(), // Tab 4
-  ];
+  List<Widget> get _pages {
+    String role = UserData.role ?? "student";
+    Widget homePage;
+    if (role == "club") {
+      homePage = const ClubHomePage();
+    } else {
+      homePage = const StudentHome();
+    }
+
+    return [
+      homePage, // Tab 0: Tự động đổi theo Role
+      const ForumPage(), // Tab 1: Diễn đàn
+      const CameraAIPage(), // Tab 2: Scan
+      const RankPage(), // Tab 3: BXH
+      const ProfilePage(), // Tab 4: Hồ sơ
+    ];
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _initGlobalSocket();
+  }
+
+  void _initGlobalSocket() {
+    if (UserData.id == null) return;
+
+    final socketService = SocketService();
+    socketService.initSocket(UserData.id!);
+
+    final socket = socketService.socket;
+    if (socket == null) return;
+
+    socket.on('receive_message', (data) {
+      dynamic senderData = data['sender'] ?? data['senderId'];
+      String msgSenderId = (senderData is Map)
+          ? senderData['_id'].toString()
+          : senderData.toString();
+      msgSenderId = msgSenderId.replaceAll('"', '').trim();
+
+      String currentMyId = (UserData.id ?? "").replaceAll('"', '').trim();
+
+      // Nếu KHÔNG PHẢI MÌNH gửi
+      if (msgSenderId != currentMyId) {
+        List<String> ids = [currentMyId, msgSenderId];
+        ids.sort();
+        String incomingRoomId = ids.join("_");
+
+        // Nếu KHÔNG Ở TRONG PHÒNG CHAT ĐÓ -> Bắn Toast
+        if (socketService.currentChatRoomId != incomingRoomId) {
+          NotificationService.unreadCountNotifier.value++;
+
+          BotToast.showNotification(
+            leading: (cancel) => CircleAvatar(
+              backgroundColor: Colors.blue.shade100,
+              child: const Icon(Icons.message, color: Colors.blue),
+            ),
+            title: (_) => const Text(
+              "Tin nhắn mới",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1A237E),
+              ),
+            ),
+            subtitle: (_) => Text(
+              data['content'] ?? "Bạn có tin nhắn mới",
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            trailing: (cancel) => IconButton(
+              icon: const Icon(Icons.close, color: Colors.grey),
+              onPressed: cancel,
+            ),
+            duration: const Duration(seconds: 4),
+            backgroundColor: Colors.white,
+            borderRadius: 15.0,
+            margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 30),
+            onTap: () {},
+          );
+        }
+      }
+    });
+  }
 
   void _onItemTapped(int index) {
     setState(() {
-      _currentIndex = index; // Cập nhật lại giao diện khi bấm nút
+      _currentIndex = index;
     });
   }
 
@@ -35,7 +115,7 @@ class _MobileLayoutState extends State<MobileLayout> {
   Widget build(BuildContext context) {
     return Scaffold(
       extendBodyBehindAppBar: true,
-      // 1. NỀN GRADIENT (Hồng -> Trắng -> Xanh)
+      // 1. NỀN GRADIENT
       body: Container(
         width: double.infinity,
         height: double.infinity,
@@ -47,7 +127,6 @@ class _MobileLayoutState extends State<MobileLayout> {
             colors: [Color(0xFFF3DDDD), Color(0xFFFFFFFF), Color(0xFFE5EFFF)],
           ),
         ),
-        // Hiển thị trang tương ứng với _currentIndex
         child: SafeArea(bottom: false, child: _pages[_currentIndex]),
       ),
 
@@ -70,7 +149,7 @@ class _MobileLayoutState extends State<MobileLayout> {
           child: BottomAppBar(
             padding: const EdgeInsets.symmetric(horizontal: 15),
             height: 70,
-            color: const Color(0xFF1A237E), // Màu xanh đậm
+            color: const Color(0xFF1A237E),
             shape: const CircularNotchedRectangle(),
             notchMargin: 8,
             child: Row(
@@ -78,7 +157,7 @@ class _MobileLayoutState extends State<MobileLayout> {
               children: <Widget>[
                 _buildNavItem(0, _iconHome, "Trang chủ"),
                 _buildNavItem(1, _iconForum, "Diễn đàn"),
-                const SizedBox(width: 40), // Khoảng trống cho nút giữa
+                const SizedBox(width: 40),
                 _buildNavItem(3, _iconRank, "BXH"),
                 _buildNavItem(4, _iconProfile, "Hồ sơ"),
               ],
@@ -92,7 +171,15 @@ class _MobileLayoutState extends State<MobileLayout> {
         width: 65,
         height: 65,
         child: FloatingActionButton(
-          onPressed: () => _onItemTapped(2), // Bấm vào thì chuyển sang tab 2
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const CameraAIPage(),
+                fullscreenDialog: true,
+              ),
+            );
+          },
           backgroundColor: const Color(0xFF1A237E),
           elevation: 4,
           shape: RoundedRectangleBorder(
@@ -147,6 +234,15 @@ class _MobileLayoutState extends State<MobileLayout> {
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    final socketService = SocketService();
+    if (socketService.socket != null) {
+      socketService.socket!.off('receive_message');
+    }
+    super.dispose();
   }
 
   // SVG Data

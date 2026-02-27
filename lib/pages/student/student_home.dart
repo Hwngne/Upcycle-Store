@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../services/user_service.dart';
-import '../../services/earn_service.dart'; 
-import '../common/news_detail_page.dart'; 
+import '../../services/earn_service.dart';
+import '../common/news_detail_page.dart';
 import 'waste_lookup_page.dart';
 import '../../components/banner_slider.dart';
 import '../common/earn_points_page.dart';
 import '../common/notification_page.dart';
+import '../../services/notification_service.dart';
 
 class StudentHome extends StatefulWidget {
   const StudentHome({super.key});
@@ -18,6 +19,7 @@ class _StudentHomeState extends State<StudentHome> {
   // Biến lưu danh sách bài báo từ API
   List<dynamic> _homeArticles = [];
   bool _isLoading = true;
+  int _unreadNotiCount = 0;
 
   @override
   void initState() {
@@ -29,11 +31,9 @@ class _StudentHomeState extends State<StudentHome> {
   Future<void> _initData() async {
     await UserService.fetchUserInfo();
 
-    // 2. Lấy danh sách bài báo
+    // 2. Lấy danh sách bài báo & Đếm thông báo
     final res = await EarnService.getArticles();
-
-    print("LOG API ARTICLES: $res");
-    print("LOG LIST RAW: ${res['articles']}");
+    await NotificationService.getUnreadCount();
 
     if (mounted) {
       setState(() {
@@ -42,7 +42,6 @@ class _StudentHomeState extends State<StudentHome> {
         _homeArticles = all
             .where((item) => (item['displayType']) == 'home')
             .toList();
-        print("LOG FILTERED: ${_homeArticles.length}");
         _isLoading = false;
       });
     }
@@ -124,34 +123,42 @@ class _StudentHomeState extends State<StudentHome> {
                       ),
                       // NÚT THÔNG BÁO
                       GestureDetector(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (c) => const NotificationPage(),
-                          ),
-                        ),
+                        onTap: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (c) => const NotificationPage(),
+                            ),
+                          );
+                          _refreshData();
+                        },
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.2),
                             shape: BoxShape.circle,
                           ),
-                          child: Stack(
-                            children: const [
-                              Icon(
-                                Icons.notifications_outlined,
-                                color: Colors.white,
-                                size: 24,
-                              ),
-                              Positioned(
-                                right: 0,
-                                top: 0,
-                                child: CircleAvatar(
-                                  radius: 4,
-                                  backgroundColor: Colors.redAccent,
+                          child: ValueListenableBuilder<int>(
+                            valueListenable:
+                                NotificationService.unreadCountNotifier,
+                            builder: (context, count, child) {
+                              return Badge(
+                                isLabelVisible: count > 0,
+                                label: Text(
+                                  '$count',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                  ),
                                 ),
-                              ),
-                            ],
+                                backgroundColor: Colors.red,
+                                child: const Icon(
+                                  Icons.notifications_outlined,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                              );
+                            },
                           ),
                         ),
                       ),
@@ -325,11 +332,9 @@ class _StudentHomeState extends State<StudentHome> {
                     ..._homeArticles.map(
                       (item) => GestureDetector(
                         onTap: () async {
-                          // Xử lý ID
                           String articleId = item['_id'] is Map
                               ? item['_id']['\$oid']
                               : item['_id'].toString();
-                          // Xử lý Quiz ID (nếu có)
                           String? quizId;
                           if (item['quiz'] != null) {
                             quizId = item['quiz'] is Map
@@ -345,7 +350,7 @@ class _StudentHomeState extends State<StudentHome> {
                                 title: item['title'],
                                 content: item['content'] ?? "",
                                 imageUrl: item['thumbnail'] ?? "",
-                                displayType: "home", // Type HOME
+                                displayType: "home",
                                 quizId: quizId,
                               ),
                             ),
@@ -397,9 +402,9 @@ class _StudentHomeState extends State<StudentHome> {
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                     const SizedBox(height: 5),
-                                    Text(
+                                    const Text(
                                       "Tin tức & Sự kiện",
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         color: Colors.grey,
                                         fontSize: 12,
                                       ),

@@ -161,28 +161,19 @@ class _ForumPageState extends State<ForumPage> {
 
                         if (success) {
                           setState(() {
-                            // Xóa item khỏi danh sách đang hiển thị để UI cập nhật ngay
                             _posts.removeAt(index);
                           });
                           if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: const Text("Đã xóa bài viết"),
-                                backgroundColor: Colors.green,
-                                behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                margin: const EdgeInsets.all(10),
-                              ),
+                            _showCustomSnackBar(
+                              "Đã xóa bài viết",
+                              isSuccess: true,
                             );
                           }
                         } else {
                           if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text("Xóa thất bại (Lỗi server)"),
-                              ),
+                            _showCustomSnackBar(
+                              "Xóa bài viết thất bại",
+                              isSuccess: false,
                             );
                           }
                         }
@@ -242,9 +233,7 @@ class _ForumPageState extends State<ForumPage> {
           _posts[index].isLiked = !_posts[index].isLiked;
           _posts[index].isLiked ? _posts[index].likes++ : _posts[index].likes--;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Lỗi kết nối! Không thể like.")),
-        );
+        _showCustomSnackBar("Lỗi kết nối! Không thể like.", isSuccess: false);
       }
     }
   }
@@ -603,7 +592,7 @@ class _ForumPageState extends State<ForumPage> {
     }
 
     try {
-      // 2. Làm sạch chuỗi (Xóa khoảng trắng thừa)
+      // 2. Làm sạch chuỗi
       String cleanDate = post.eventDate!.trim();
 
       if (cleanDate.contains('-')) {
@@ -957,24 +946,27 @@ class _ForumPageState extends State<ForumPage> {
     );
   }
 
-  //   NÚT XÓA CHO CHÍNH CHỦ VỚI GIAO DIỆN MỚI
+  // NÚT XÓA CHO CHÍNH CHỦ VỚI GIAO DIỆN MỚI
   Widget _buildPostItem(ForumPost post, int index) {
     bool isOwner =
         post.authorName == UserData.name ||
         post.authorName == UserData.studentId;
 
+    bool isProduct = post.tagName == "Sản phẩm";
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(15),
       decoration: const BoxDecoration(
         color: Colors.white,
         boxShadow: [
-          BoxShadow(color: Colors.black12, blurRadius: 2, offset: Offset(0, 1)),
+          BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 1. HEADER
           Row(
             children: [
               CircleAvatar(
@@ -1003,7 +995,7 @@ class _ForumPageState extends State<ForumPage> {
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
-                  vertical: 3,
+                  vertical: 4,
                 ),
                 decoration: BoxDecoration(
                   color: _getTagColor(post.tagName),
@@ -1018,67 +1010,198 @@ class _ForumPageState extends State<ForumPage> {
                   ),
                 ),
               ),
-
-              //  MENU TÙY CHỌN (CHỈ HIỆN NẾU LÀ CHỦ BÀI)
               if (isOwner)
-                Theme(
-                  data: Theme.of(context).copyWith(
-                    useMaterial3: true,
-                    popupMenuTheme: const PopupMenuThemeData(
-                      color: Colors.white,
-                      surfaceTintColor: Colors.white,
-                    ),
+                PopupMenuButton<String>(
+                  elevation: 3,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
                   ),
-                  child: PopupMenuButton<String>(
-                    elevation: 3,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    offset: const Offset(0, 40),
-                    icon: const Icon(Icons.more_horiz, color: Colors.grey),
-                    onSelected: (value) {
-                      if (value == 'delete') {
-                        _confirmDeletePost(post.id, index);
+                  offset: const Offset(0, 40),
+                  icon: const Icon(Icons.more_horiz, color: Colors.grey),
+                  onSelected: (value) async {
+                    if (value == 'delete') {
+                      _confirmDeletePost(post.id, index);
+                    } else if (value == 'sold') {
+                      bool success = await ForumService.markAsSold(post.id);
+                      if (success) {
+                        setState(() {
+                          _posts[index].quantity = 0;
+                        });
+                        _showCustomSnackBar("Đã cập nhật thành Hết hàng!");
+                      } else {
+                        _showCustomSnackBar(
+                          "Có lỗi xảy ra, vui lòng thử lại.",
+                          isSuccess: false,
+                        );
                       }
-                    },
-                    itemBuilder: (BuildContext context) =>
-                        <PopupMenuEntry<String>>[
-                          PopupMenuItem<String>(
-                            value: 'delete',
-                            height: 45,
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.shade50,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Icon(
-                                    Icons.delete_rounded,
-                                    color: Colors.red,
-                                    size: 18,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                const Text(
-                                  'Xóa bài viết',
-                                  style: TextStyle(
-                                    color: Colors.red,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ],
+                    }
+                  },
+                  itemBuilder: (BuildContext context) => [
+                    if (isProduct &&
+                        post.quantity != null &&
+                        post.quantity! > 0)
+                      PopupMenuItem<String>(
+                        value: 'sold',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.remove_shopping_cart,
+                              color: Colors.orange.shade600,
+                              size: 20,
                             ),
+                            const SizedBox(width: 10),
+                            const Text(
+                              'Đánh dấu đã bán',
+                              style: TextStyle(color: Colors.orange),
+                            ),
+                          ],
+                        ),
+                      ),
+                    PopupMenuItem<String>(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.delete_rounded,
+                            color: Colors.red.shade400,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          const Text(
+                            'Xóa bài',
+                            style: TextStyle(color: Colors.red),
                           ),
                         ],
-                  ),
+                      ),
+                    ),
+                  ],
                 ),
             ],
           ),
           const SizedBox(height: 12),
-          Text(post.content),
+
+          // 2. NỘI DUNG MÔ TẢ TRÊN CÙNG
+          Text(post.content, style: const TextStyle(fontSize: 14, height: 1.4)),
+          const SizedBox(height: 12),
+
+          if (isProduct)
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.03),
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Hình ảnh sản phẩm
+                  if (post.image != null)
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(12),
+                      ),
+                      child: Image.network(
+                        post.image!,
+                        height: 200,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (c, e, s) => Container(
+                          height: 200,
+                          color: Colors.grey[200],
+                          child: const Icon(
+                            Icons.image_not_supported,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  // Thông tin sản phẩm
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Tiêu đề sản phẩm
+                        Text(
+                          post.title ?? post.category ?? "Sản phẩm",
+                          style: const TextStyle(
+                            color: Color(0xFF1A237E),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 8),
+
+                        // Giá và Tình trạng
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            // Giá / Miễn phí
+                            Text(
+                              post.price == null
+                                  ? "Miễn phí"
+                                  : "${formatCurrency(post.price!)}đ",
+                              style: TextStyle(
+                                color: post.price == null
+                                    ? Colors.red
+                                    : Colors.red,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+
+                            // Tình trạng
+                            Text(
+                              (post.quantity != null && post.quantity! > 0)
+                                  ? "Còn hàng"
+                                  : "Hết hàng",
+                              style: TextStyle(
+                                color:
+                                    (post.quantity != null &&
+                                        post.quantity! > 0)
+                                    ? Colors.green
+                                    : Colors.grey,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else if (post.image != null)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.network(
+                post.image!,
+                height: 200,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (c, e, s) => Container(
+                  height: 200,
+                  color: Colors.grey[300],
+                  child: const Center(
+                    child: Icon(Icons.broken_image, color: Colors.grey),
+                  ),
+                ),
+              ),
+            ),
+
+          // File đính kèm
           if (post.attachmentName != null && post.attachmentName!.isNotEmpty)
             InkWell(
               onTap: () async {
@@ -1088,14 +1211,15 @@ class _ForumPageState extends State<ForumPage> {
                     url,
                     mode: LaunchMode.externalApplication,
                   )) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Không thể mở file này!")),
+                    _showCustomSnackBar(
+                      "Không thể mở file này!",
+                      isSuccess: false,
                     );
                   }
                 }
               },
               child: Container(
-                margin: const EdgeInsets.only(top: 8),
+                margin: const EdgeInsets.only(top: 10),
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: Colors.blue.shade50,
@@ -1107,52 +1231,25 @@ class _ForumPageState extends State<ForumPage> {
                     const Icon(Icons.attach_file, size: 20, color: Colors.blue),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            post.attachmentName!,
-                            style: const TextStyle(
-                              color: Colors.blue,
-                              fontWeight: FontWeight.bold,
-                              decoration: TextDecoration.underline,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const Text(
-                            "Bấm để xem tài liệu",
-                            style: TextStyle(fontSize: 10, color: Colors.grey),
-                          ),
-                        ],
+                      child: Text(
+                        post.attachmentName!,
+                        style: const TextStyle(
+                          color: Colors.blue,
+                          fontWeight: FontWeight.bold,
+                          decoration: TextDecoration.underline,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const Icon(Icons.open_in_new, size: 16, color: Colors.blue),
                   ],
                 ),
               ),
             ),
-          if (post.image != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Image.network(
-                  post.image!,
-                  height: 200,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (c, e, s) => Container(
-                    height: 200,
-                    color: Colors.grey[300],
-                    child: const Center(
-                      child: Icon(Icons.broken_image, color: Colors.grey),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          const SizedBox(height: 10),
+
+          const SizedBox(height: 12),
+
+          // 4. FOOTER: NÚT TƯƠNG TÁC
           Row(
             children: [
               IconButton(
@@ -1170,44 +1267,58 @@ class _ForumPageState extends State<ForumPage> {
               ),
               Text("${post.comments}"),
               const Spacer(),
+
+              // Nút Mua ngay / Liên hệ
               if (post.authorName != UserData.name)
                 ElevatedButton.icon(
-                  onPressed: () {
-                    if (post.authorId == UserData.id) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            "Bạn không thể nhắn tin cho chính mình!",
-                          ),
-                        ),
-                      );
-                      return;
-                    }
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ChatDetailPage(
-                          partnerId: post.authorId,
-                          partnerName: post.authorName,
-                          partnerImage: post.authorAvatar,
-                          isOnline: true,
-                        ),
-                      ),
-                    );
-                  },
-                  icon: const Icon(
-                    Icons.message,
+                  onPressed:
+                      (isProduct &&
+                          (post.quantity == null || post.quantity! <= 0))
+                      ? null
+                      : () {
+                          if (post.authorId == UserData.id) return;
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ChatDetailPage(
+                                partnerId: post.authorId,
+                                partnerName: post.authorName,
+                                partnerImage: post.authorAvatar,
+                                isOnline: true,
+                              ),
+                            ),
+                          );
+                        },
+                  icon: Icon(
+                    isProduct ? Icons.shopping_cart_checkout : Icons.message,
                     size: 16,
                     color: Colors.white,
                   ),
-                  label: const Text(
-                    "Liên hệ",
-                    style: TextStyle(color: Colors.white, fontSize: 12),
+                  label: Text(
+                    isProduct
+                        ? ((post.quantity != null && post.quantity! > 0)
+                              ? "Mua ngay"
+                              : "Hết hàng")
+                        : "Liên hệ",
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2C2C54),
+                    backgroundColor:
+                        (isProduct &&
+                            (post.quantity == null || post.quantity! <= 0))
+                        ? Colors.grey.shade400
+                        : (isProduct
+                              ? const Color(0xFF059669)
+                              : const Color(0xFF2C2C54)),
+                    disabledBackgroundColor: Colors.grey.shade400,
+                    foregroundColor: Colors.white,
+                    disabledForegroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
+                      horizontal: 15,
                       vertical: 8,
                     ),
                     shape: RoundedRectangleBorder(
@@ -1233,6 +1344,44 @@ class _ForumPageState extends State<ForumPage> {
       default:
         return Colors.grey;
     }
+  }
+
+  // --- HIỂN THỊ THÔNG BÁO CHUYÊN NGHIỆP ---
+  void _showCustomSnackBar(String message, {bool isSuccess = true}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              isSuccess
+                  ? Icons.check_circle_rounded
+                  : Icons.error_outline_rounded,
+              color: Colors.white,
+              size: 24,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: isSuccess
+            ? const Color(0xFF059669)
+            : Colors.red.shade600,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+        elevation: 6,
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   void _openSearch() {

@@ -9,14 +9,14 @@ class WasteService {
       final response = await http.get(Uri.parse(baseUrl));
 
       if (response.statusCode == 200) {
-        print("✅ Lấy dữ liệu trạm rác thành công!");
+        print("Lấy dữ liệu trạm rác thành công!");
         return jsonDecode(response.body);
       } else {
-        print("❌ Lỗi Server: ${response.statusCode}");
+        print(" Lỗi Server: ${response.statusCode}");
         return [];
       }
     } catch (e) {
-      print("❌ Lỗi mạng khi lấy trạm rác: $e");
+      print(" Lỗi mạng khi lấy trạm rác: $e");
       return [];
     }
   }

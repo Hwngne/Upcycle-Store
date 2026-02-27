@@ -158,7 +158,7 @@ class AuthService {
     }
   }
 
-  // --- 4. CẬP NHẬT PROFILE (Đã có Auth Header) ---
+  // --- 4. CẬP NHẬT PROFILE ) ---
   static Future<bool> updateProfile({
     required String gender,
     required String phone,
@@ -201,7 +201,7 @@ class AuthService {
     }
   }
 
-  // --- 5. LẤY BXH (Public API - Không cần Token cũng được, nhưng có thì tốt) ---
+  // --- 5. LẤY BXH
   static Future<List<dynamic>> fetchLeaderboard() async {
     try {
       final response = await http.get(Uri.parse('$baseUrl/leaderboard'));
@@ -227,24 +227,25 @@ class AuthService {
         prefs.getString('user_avatar') ?? "https://i.pravatar.cc/300";
     UserData.points = prefs.getInt('points_${UserData.email}') ?? 0;
 
-    // Lưu ý: attendanceHistory phức tạp hơn nên thường không cache,
-    // mà sẽ load lại từ API profile khi mở app (tùy bạn chọn)
-
     return true;
   }
 
   // --- 7. ĐĂNG XUẤT ---
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.clear(); // Xóa sạch cho nhanh
+    await prefs.clear();
   }
 
   // --- 8. ĐỔI MẬT KHẨU ---
   static Future<Map<String, dynamic>> changePassword(String newPassword) async {
     try {
+      final token = await getToken();
       final response = await http.post(
         Uri.parse('$baseUrl/change-password'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
         body: jsonEncode({'email': UserData.email, 'newPassword': newPassword}),
       );
 
@@ -280,7 +281,7 @@ class AuthService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
-        // 1. CẬP NHẬT GLOBAL STATE (Để dùng cho các màn hình khác)
+        // 1. CẬP NHẬT GLOBAL STATE
         UserData.name = data['name'];
         UserData.email = data['email'];
         UserData.role = data['role'];
@@ -289,7 +290,7 @@ class AuthService {
         UserData.gender = data['gender'];
         UserData.dateOfBirth = data['dateOfBirth'];
 
-        // Cập nhật Điểm & Rank (Logic ép kiểu an toàn của bạn rất tốt)
+        // Cập nhật Điểm & Rank
         UserData.points =
             int.tryParse(data['points'].toString()) ??
             int.tryParse(data['total_points'].toString()) ??

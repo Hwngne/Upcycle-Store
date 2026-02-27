@@ -4,7 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 // Import các trang con
 import '../pages/club/club_home_page.dart'; // File mới tách ra
 import '../pages/common/forum_page.dart'; // Trang Diễn đàn (có sẵn của bạn)
-import '../pages/common/camera_page.dart'; // Trang Camera (có sẵn của bạn)
+import '../pages/common/camera_ai_page.dart'; // Trang Camera (có sẵn của bạn)
 import '../pages/club/blog_page.dart'; // Trang Blog (bạn tạo sau)
 import '../pages/common/profile_page.dart'; // Trang Profile (tách riêng cho gọn)
 
@@ -20,11 +20,11 @@ class _ClubLayoutState extends State<ClubLayout> {
 
   // Danh sách các màn hình con
   final List<Widget> _pages = [
-    const ClubHomePage(), // Tab 0: Trang chủ CLB (Load từ file riêng)
-    const ForumPage(), // Tab 1: Diễn đàn (Dùng chung)
-    const CameraPage(), // Tab 2: Camera (Dùng chung)
-    const BlogPage(), // Tab 3: Blog (Thay bằng Widget thật sau này)
-    const ProfilePage(), // Tab 4: Hồ sơ CLB (Tách riêng)
+    const ClubHomePage(), // Tab 0: Trang chủ CLB 
+    const ForumPage(), // Tab 1: Diễn đàn 
+    const CameraAIPage(), // Tab 2: Camera 
+    const BlogPage(), // Tab 3: Blog 
+    const ProfilePage(), // Tab 4: Hồ sơ CLB 
   ];
 
   void _onItemTapped(int index) {
@@ -38,7 +38,7 @@ class _ClubLayoutState extends State<ClubLayout> {
     return Scaffold(
       extendBodyBehindAppBar: true,
 
-      // 1. NỀN GRADIENT (Giống MobileLayout sinh viên)
+      // 1. NỀN GRADIENT 
       body: Container(
         width: double.infinity,
         height: double.infinity,
@@ -50,7 +50,6 @@ class _ClubLayoutState extends State<ClubLayout> {
             colors: [Color(0xFFF3DDDD), Color(0xFFFFFFFF), Color(0xFFE5EFFF)],
           ),
         ),
-        // SafeArea bottom: false để nội dung tràn xuống dưới (do bottom bar trong suốt)
         child: SafeArea(bottom: false, child: _pages[_currentIndex]),
       ),
 
@@ -73,8 +72,8 @@ class _ClubLayoutState extends State<ClubLayout> {
           child: BottomAppBar(
             padding: const EdgeInsets.symmetric(horizontal: 15),
             height: 70,
-            color: const Color(0xFF1A237E), // Màu xanh đậm
-            shape: const CircularNotchedRectangle(), // Tạo hõm cho nút giữa
+            color: const Color(0xFF1A237E), 
+            shape: const CircularNotchedRectangle(), 
             notchMargin: 8,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -82,7 +81,7 @@ class _ClubLayoutState extends State<ClubLayout> {
                 _buildNavItem(0, _iconHome, "Trang chủ"),
                 _buildNavItem(1, _iconForum, "Diễn đàn"),
                 const SizedBox(width: 40), // Khoảng trống cho nút Camera
-                _buildNavItem(3, _iconBlog, "Blog"), // Tab Blog
+                _buildNavItem(3, _iconBlog, "Blog"), 
                 _buildNavItem(4, _iconProfile, "Hồ sơ"),
               ],
             ),
@@ -95,7 +94,15 @@ class _ClubLayoutState extends State<ClubLayout> {
         width: 65,
         height: 65,
         child: FloatingActionButton(
-          onPressed: () => _onItemTapped(2), // Chuyển sang tab Camera
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const CameraAIPage(), 
+                fullscreenDialog: true, 
+              ),
+            );
+          },
           backgroundColor: const Color(0xFF1A237E),
           elevation: 4,
           shape: RoundedRectangleBorder(

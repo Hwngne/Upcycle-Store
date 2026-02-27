@@ -31,6 +31,7 @@ class _QuizPageState extends State<QuizPage> {
   late String _realQuizId;
 
   String _displayTitle = "Quiz";
+  int _quizPoints = 20;
 
   @override
   void initState() {
@@ -46,6 +47,11 @@ class _QuizPageState extends State<QuizPage> {
         setState(() {
           _questions = widget.quizData['questions'] ?? [];
           _displayTitle = widget.quizData['title'] ?? widget.title;
+          _quizPoints =
+              widget.quizData['rewardPoint'] ??
+              widget.quizData['max_points'] ??
+              widget.quizData['bonusPoints'] ??
+              20;
 
           var rawId = widget.quizData['_id'];
           _realQuizId = rawId is Map ? rawId['\$oid'] : rawId.toString();
@@ -65,6 +71,11 @@ class _QuizPageState extends State<QuizPage> {
           setState(() {
             _questions = data['questions'] ?? [];
             _displayTitle = data['title'] ?? widget.title;
+            _quizPoints =
+                data['rewardPoint'] ??
+                data['max_points'] ??
+                data['bonusPoints'] ??
+                20;
             _isLoading = false;
           });
         }
@@ -116,7 +127,7 @@ class _QuizPageState extends State<QuizPage> {
       }
       UserData.quizzesDoneToday++;
 
-      int pointsEarned = result['pointsEarned'] ?? 20;
+      int pointsEarned = result['pointsEarned'] ?? _quizPoints;
       _showRewardDialog(pointsEarned);
     } else {
       String message = result?['message'] ?? "Lỗi kết nối!";
@@ -369,7 +380,7 @@ class _QuizPageState extends State<QuizPage> {
                   child: Column(
                     children: [
                       Text(
-                        "Câu hỏi ${_currentIndex + 1} / ${_questions.length}",
+                        "Câu hỏi ${_currentIndex + 1} / ${_questions.length} • Thưởng $_quizPoints điểm", // Hiện điểm ở đây!
                         style: const TextStyle(
                           color: Colors.white70,
                           fontSize: 12,

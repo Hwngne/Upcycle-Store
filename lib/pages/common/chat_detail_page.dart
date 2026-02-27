@@ -1,4 +1,4 @@
-import 'dart:async'; // Để dùng Timer
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:http/http.dart' as http;
@@ -10,6 +10,7 @@ import '../../services/api_constrants.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:photo_view/photo_view.dart';
+import '../../services/socket_service.dart';
 
 class ChatDetailPage extends StatefulWidget {
   final String partnerId;
@@ -75,21 +76,15 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
   }
 
   void _connectSocket() {
-    socket = IO.io(serverUrl, <String, dynamic>{
-      'transports': ['websocket'],
-      'autoConnect': false,
-    });
-    socket.connect();
-    _loadMessageHistory();
+    final socketService = SocketService();
 
-    _scrollController.addListener(_scrollListener);
-
-    socket.onConnect((_) {
-      if (myId != null) socket.emit('user_online', myId);
-      String roomId = _getRoomId(myId!, widget.partnerId);
-      socket.emit('join_room', roomId);
-    });
-
+    if (socketService.socket == null || !socketService.socket!.connected) {
+      socketService.initSocket(myId!);
+    }
+    socket = socketService.socket!;
+    String roomId = _getRoomId(myId!, widget.partnerId);
+    socketService.currentChatRoomId = roomId;
+    socket.emit('join_room', roomId);
     socket.on('get_online_users', (data) {
       if (mounted) {
         List<String> onlineIds = List<String>.from(data);
@@ -106,14 +101,12 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
         String msgSenderId = (senderData is Map)
             ? senderData['_id'].toString()
             : senderData.toString();
-
         msgSenderId = msgSenderId.replaceAll('"', '').trim();
         String currentMyId = (myId ?? "").replaceAll('"', '').trim();
-
         if (msgSenderId != currentMyId) {
           setState(() {
             messages.insert(0, data);
-            _isPartnerTyping = false; // Nhận tin xong thì tắt typing luôn
+            _isPartnerTyping = false;
           });
         }
       }
@@ -162,7 +155,6 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     });
   }
 
-  // Hàm lắng nghe sự kiện cuộn để tải thêm tin nhắn
   void _scrollListener() {
     if (_scrollController.position.pixels >=
             _scrollController.position.maxScrollExtent - 50 &&
@@ -459,7 +451,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     if (_scrollController.hasClients) {
       Future.delayed(const Duration(milliseconds: 100), () {
         _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
+          0.0,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
         );
@@ -469,8 +461,12 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
 
   @override
   void dispose() {
-    socket.disconnect();
-    socket.dispose();
+    SocketService().currentChatRoomId = null;
+    socket.off('receive_message');
+    socket.off('message_revoked');
+    socket.off('message_edited');
+    socket.off('display_typing');
+    socket.off('get_online_users');
     _msgController.dispose();
     _scrollController.dispose();
     _typingTimer?.cancel();

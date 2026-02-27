@@ -27,10 +27,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   // --- LOGIC AVATAR ---
   XFile? _pickedFile;
-  // ✅ FIX LỖI 2: Thêm giá trị mặc định nếu null
   String _currentAvatarUrl = UserData.avatar ?? "https://i.pravatar.cc/300";
 
-  // Danh sách Avatar có sẵn (Presets)
+  // Danh sách Avatar có sẵn 
   final List<String> _presetAvatars = [
     "https://cdn-icons-png.flaticon.com/512/4140/4140048.png", // Nam
     "https://cdn-icons-png.flaticon.com/512/4140/4140047.png", // Nữ
@@ -75,7 +74,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   // Hàm mới: Lấy dữ liệu mới nhất từ Server
   Future<void> _fetchLatestData() async {
     try {
-      final data = await UserService.getUserProfile(); // Gọi API
+      final data = await UserService.getUserProfile(); 
       if (mounted) {
         setState(() {
           _dobController.text = data['dateOfBirth'] ?? "";
@@ -93,7 +92,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
           _initialPhone = _phoneController.text;
           _initialGender = _selectedGender;
 
-          // Kiểm tra lại xem có thay đổi không (sau khi data mới về)
           _checkForChanges();
         });
 
@@ -104,11 +102,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
         UserData.avatar = _currentAvatarUrl;
       }
     } catch (e) {
-      print("⚠️ Không thể đồng bộ dữ liệu mới nhất: $e");
+      print(" Không thể đồng bộ dữ liệu mới nhất: $e");
     }
   }
 
-  // ✅ FIX LỖI 3: Hàm này phải nằm trong class State
   void _checkForChanges() {
     bool hasChanged =
         _dobController.text != _initialDob ||

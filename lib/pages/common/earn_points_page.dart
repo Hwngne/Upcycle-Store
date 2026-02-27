@@ -19,6 +19,7 @@ class EarnPointsPage extends StatefulWidget {
 class _EarnPointsPageState extends State<EarnPointsPage> {
   int _displayArticlePoints = 10;
   int _displayQuizPoints = 20;
+  int _displayVideoPoints = 15;
   final int _maxArticles = 3;
   final int _maxQuizzes = 3;
   bool _isLoading = true;
@@ -56,12 +57,19 @@ class _EarnPointsPageState extends State<EarnPointsPage> {
 
         List aList = articleRes['articles'] ?? [];
         if (aList.isNotEmpty) {
-          _displayArticlePoints = aList[0]['bonusPoints'] ?? 10;
+          _displayArticlePoints =
+              aList[0]['rewardPoint'] ?? aList[0]['bonusPoints'] ?? 10;
         }
 
         List qList = quizRes['quizzes'] ?? [];
         if (qList.isNotEmpty) {
-          _displayQuizPoints = qList[0]['max_points'] ?? 20;
+          _displayQuizPoints =
+              qList[0]['rewardPoint'] ?? qList[0]['max_points'] ?? 20;
+        }
+        List vList = videoRes['videos'] ?? [];
+        if (vList.isNotEmpty) {
+          _displayVideoPoints =
+              vList[0]['rewardPoint'] ?? vList[0]['bonusPoints'] ?? 15;
         }
 
         _isLoading = false;
@@ -77,7 +85,7 @@ class _EarnPointsPageState extends State<EarnPointsPage> {
     return date.subtract(Duration(days: date.weekday - 1));
   }
 
-  // --- 1. XỬ LÝ ĐIỂM DANH (Giữ nguyên) ---
+  // --- 1. XỬ LÝ ĐIỂM DANH  ---
   void _handleCheckIn() async {
     String todayStr = _formatDate(DateTime.now());
 
@@ -127,7 +135,7 @@ class _EarnPointsPageState extends State<EarnPointsPage> {
     }
   }
 
-  // --- 2. XỬ LÝ ĐỌC BÁO (TÍCH HỢP NEWS DETAIL PAGE) ---
+  // --- 2. XỬ LÝ ĐỌC BÁO  ---
   void _handleReadingTask() async {
     // 1. Loading
     showDialog(
@@ -186,6 +194,8 @@ class _EarnPointsPageState extends State<EarnPointsPage> {
                   separatorBuilder: (c, i) => const Divider(),
                   itemBuilder: (context, index) {
                     final article = articles[index];
+                    int dynamicPoints =
+                        article['rewardPoint'] ?? _displayArticlePoints;
                     return ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: ClipRRect(
@@ -210,14 +220,12 @@ class _EarnPointsPageState extends State<EarnPointsPage> {
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       subtitle: Text(
-                        // Hiển thị điểm theo config Global
-                        "Đọc ngay • +$_displayArticlePoints điểm",
+                        "Đọc ngay • +$dynamicPoints điểm",
                         style: const TextStyle(color: Colors.green),
                       ),
                       onTap: () {
-                        Navigator.pop(context); // Đóng BottomSheet
+                        Navigator.pop(context);
 
-                        // Xử lý ID an toàn
                         String articleId = article['_id'] is Map
                             ? article['_id']['\$oid']
                             : article['_id'].toString();
@@ -230,10 +238,10 @@ class _EarnPointsPageState extends State<EarnPointsPage> {
                               title: article['title'],
                               content: article['content'] ?? "",
                               imageUrl: article['thumbnail'] ?? "",
-
                               displayType: "hunt",
                               readingTime: 15,
-                              bonusPoints: _displayArticlePoints,
+
+                              bonusPoints: dynamicPoints,
                             ),
                           ),
                         ).then((_) {
@@ -318,6 +326,11 @@ class _EarnPointsPageState extends State<EarnPointsPage> {
                 itemBuilder: (context, index) {
                   final quiz = quizzes[index];
                   List qs = quiz['questions'] ?? [];
+                  int dynamicQuizPoints =
+                      quiz['rewardPoint'] ??
+                      quiz['max_points'] ??
+                      quiz['bonusPoints'] ??
+                      20;
 
                   return Card(
                     elevation: 2,
@@ -337,7 +350,7 @@ class _EarnPointsPageState extends State<EarnPointsPage> {
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       subtitle: Text(
-                        "${qs.length} câu hỏi • +${quiz['max_points'] ?? 20} điểm",
+                        "${qs.length} câu hỏi • +$dynamicQuizPoints điểm",
                       ),
                       trailing: const Icon(
                         Icons.arrow_forward_ios,
@@ -418,7 +431,7 @@ class _EarnPointsPageState extends State<EarnPointsPage> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (c) => Container(
-        height: MediaQuery.of(context).size.height * 0.75, // Cao 75% màn hình
+        height: MediaQuery.of(context).size.height * 0.75, 
         padding: const EdgeInsets.all(20),
         decoration: const BoxDecoration(
           color: Color(0xFFF5F5FA),
@@ -427,7 +440,6 @@ class _EarnPointsPageState extends State<EarnPointsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Thanh gạch ngang nhỏ trang trí
             Center(
               child: Container(
                 width: 40,
@@ -467,7 +479,8 @@ class _EarnPointsPageState extends State<EarnPointsPage> {
                   String title = video['title'] ?? "Video không tiêu đề";
                   String thumb = video['thumbnailUrl'] ?? "";
                   String url = video['videoUrl'] ?? "";
-                  int bonus = video['bonusPoints'] ?? 15;
+                  int bonus =
+                      video['rewardPoint'] ?? video['bonusPoints'] ?? 15;
                   int views = video['views'] ?? 0;
 
                   return GestureDetector(
@@ -638,7 +651,7 @@ class _EarnPointsPageState extends State<EarnPointsPage> {
     );
   }
 
-  // --- 5. XỬ LÝ VÒNG QUAY (GIỮ NGUYÊN) ---
+  // --- 5. XỬ LÝ VÒNG QUAY  ---
   void _openLuckyWheelGame() {
     if (UserData.hasSpunWheelToday) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -879,7 +892,7 @@ class _EarnPointsPageState extends State<EarnPointsPage> {
                                 title: "Xem video",
                                 subtitle:
                                     "(${UserData.videosWatchedToday}/3) video",
-                                points: "+15 điểm", // Hoặc "Ngẫu nhiên"
+                                points: "+$_displayVideoPoints điểm",
                                 icon: Icons.play_circle_outline,
                                 color: Colors.red,
                                 bgColor: Colors.red.shade50,

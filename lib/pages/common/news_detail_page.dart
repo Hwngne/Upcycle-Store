@@ -52,9 +52,19 @@ class _NewsDetailPageState extends State<NewsDetailPage> {
     if (widget.displayType == "hunt") {
       _startTimer();
     } else {
-      // --- 2. GỌI HÀM CHECK QUIZ NẾU LÀ HOME (MỚI) ---
+      // --- 2. GỌI HÀM CHECK QUIZ NẾU LÀ HOME  ---
       _checkQuizStatus();
     }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients &&
+          _scrollController.position.maxScrollExtent <= 0) {
+        setState(() {
+          _hasScrolledToBottom = true;
+          _checkInteractionCondition();
+        });
+      }
+    });
   }
 
   // --- 3. HÀM KIỂM TRA QUIZ TỒN TẠI/PUBLIC KHÔNG (MỚI) ---
@@ -290,7 +300,7 @@ class _NewsDetailPageState extends State<NewsDetailPage> {
                         child: CircularProgressIndicator(color: Colors.white),
                       )
                     : Text(
-                        _getButtonLabel(), // Text thay đổi linh hoạt
+                        _getButtonLabel(),
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -318,7 +328,7 @@ class _NewsDetailPageState extends State<NewsDetailPage> {
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFFFFF0F0), Colors.white], // Nền hồng nhạt
+              colors: [Color(0xFFFFF0F0), Colors.white],
             ),
           ),
           child: Column(
@@ -344,11 +354,8 @@ class _NewsDetailPageState extends State<NewsDetailPage> {
               // Nút bấm
               ElevatedButton(
                 onPressed: () {
-                  Navigator.pop(context); // 1. Tắt Dialog
-                  Navigator.pop(
-                    context,
-                    true,
-                  ); // 2. Thoát trang báo & refresh danh sách bên ngoài
+                  Navigator.pop(context);
+                  Navigator.pop(context, true);
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFB71C1C),
@@ -375,7 +382,7 @@ class _NewsDetailPageState extends State<NewsDetailPage> {
     );
   }
 
-  // --- 4. CẬP NHẬT LOGIC HIỂN THỊ TEXT NÚT (QUAN TRỌNG) ---
+  // --- 4. CẬP NHẬT LOGIC HIỂN THỊ TEXT NÚT  ---
   String _getButtonLabel() {
     if (widget.displayType == "home") {
       if (_checkingQuiz) return "Đang kiểm tra...";

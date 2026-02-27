@@ -15,13 +15,16 @@ class ForumPost {
   final DateTime? timestamp;
   final String tagName;
   final String content;
+  final String? title;
   int likes;
   int comments;
   bool isLiked;
+
+  double? price;
+  int? quantity;
   final String? image;
   final String? topic;
   final String? category;
-  final double? price;
   final String? attachmentName;
   final String? attachmentUrl;
   final String? eventDate;
@@ -51,11 +54,13 @@ class ForumPost {
     this.eventTime,
     this.eventLocation,
     this.commentsList = const [],
+    this.quantity,
+    this.title,
   });
 }
 
 class ForumService {
-  // ⚠️ Đổi IP backend nếu cần
+  //  Đổi IP backend
   static const String baseUrl = "http://localhost:5000/api/posts";
   static const String configUrl = "http://localhost:5000/api/config";
   static const String serverUrl = "http://localhost:5000";
@@ -92,6 +97,7 @@ class ForumService {
             timestamp: DateTime.tryParse(json['createdAt'] ?? ""),
             tagName: json['type'] ?? "Thảo luận",
             content: json['content'] ?? "",
+            title: json['title'],
             image: imageUrl,
             likes: (json['likes'] as List).length,
             comments: json['commentCount'] ?? (json['comments'] as List).length,
@@ -101,6 +107,9 @@ class ForumService {
             category: json['category'],
             price: json['price'] != null
                 ? double.tryParse(json['price'].toString())
+                : null,
+            quantity: json['quantity'] != null
+                ? int.tryParse(json['quantity'].toString())
                 : null,
             attachmentUrl: json['attachment'],
             attachmentName: json['attachmentName'],
@@ -296,11 +305,9 @@ class ForumService {
         );
         request.headers['Authorization'] = 'Bearer $token';
 
-        // 🔥 QUAN TRỌNG: Gán fields (Text) TRƯỚC
         request.fields['email'] = UserData.email!;
         request.fields['content'] = content;
 
-        // 🔥 Gán files (Ảnh) SAU
         final bytes = await imageFile.readAsBytes();
         request.files.add(
           http.MultipartFile.fromBytes(
@@ -311,7 +318,7 @@ class ForumService {
         );
 
         print(
-          "📤 Đang gửi Comment Multipart: Email=${UserData.email}, Content=$content, Image=${imageFile.name}",
+          " Đang gửi Comment Multipart: Email=${UserData.email}, Content=$content, Image=${imageFile.name}",
         );
 
         var streamedResponse = await request.send();
@@ -454,11 +461,11 @@ class ForumService {
         );
         request.headers['Authorization'] = 'Bearer $token';
 
-        // 🔥 QUAN TRỌNG: Fields TRƯỚC
+        //  QUAN TRỌNG: Fields TRƯỚC
         request.fields['email'] = UserData.email!;
         request.fields['content'] = content;
 
-        // 🔥 Files SAU
+        //  Files SAU
         final bytes = await imageFile.readAsBytes();
         request.files.add(
           http.MultipartFile.fromBytes(
@@ -611,6 +618,26 @@ class ForumService {
       }
     } catch (e) {
       print("Lỗi kết nối xóa bài: $e");
+      return false;
+    }
+  }
+
+  // --- 14. ĐÁNH DẤU ĐÃ BÁN (HẾT HÀNG) ---
+  static Future<bool> markAsSold(String postId) async {
+    try {
+      final token = await AuthService.getToken();
+      final response = await http.put(
+        Uri.parse('$baseUrl/$postId/sold'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'email': UserData.email}),
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print("Lỗi đánh dấu đã bán: $e");
       return false;
     }
   }

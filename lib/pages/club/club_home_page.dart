@@ -6,6 +6,7 @@ import '../../components/banner_slider.dart';
 import '../common/notification_page.dart';
 import '../club/create_event_page.dart';
 import '../common/earn_points_page.dart';
+import '../../services/notification_service.dart';
 
 class ClubHomePage extends StatefulWidget {
   const ClubHomePage({super.key});
@@ -17,16 +18,17 @@ class ClubHomePage extends StatefulWidget {
 class _ClubHomePageState extends State<ClubHomePage> {
   List<dynamic> _homeArticles = [];
   bool _isLoading = true;
+  int _unreadNotiCount = 0;
 
   @override
   void initState() {
     super.initState();
     _initData();
   }
-  // --- THÊM HÀM NÀY VÀO CLASS ---
+
   Future<void> _fetchUserData() async {
     try {
-      await UserService.fetchUserInfo(); 
+      await UserService.fetchUserInfo();
       if (mounted) {
         setState(() {});
       }
@@ -38,6 +40,7 @@ class _ClubHomePageState extends State<ClubHomePage> {
   Future<void> _initData() async {
     await UserService.fetchUserInfo();
     final res = await EarnService.getArticles();
+    await NotificationService.getUnreadCount();
 
     if (mounted) {
       setState(() {
@@ -59,7 +62,6 @@ class _ClubHomePageState extends State<ClubHomePage> {
     final size = MediaQuery.of(context).size;
     final double screenHeight = size.height;
 
-    // Dùng UserData thật
     final String displayName = UserData.name ?? "Câu Lạc Bộ";
     final int displayPoints = UserData.points ?? 0;
     final String displayAvatar = UserData.avatar ?? "https://i.pravatar.cc/300";
@@ -69,7 +71,7 @@ class _ClubHomePageState extends State<ClubHomePage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // HEADER ĐỎ (GIỮ NGUYÊN)
+            // HEADER ĐỎ
             Stack(
               clipBehavior: Clip.none,
               alignment: Alignment.bottomCenter,
@@ -124,23 +126,46 @@ class _ClubHomePageState extends State<ClubHomePage> {
                           ],
                         ),
                       ),
+                      // NÚT THÔNG BÁO
                       GestureDetector(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (c) => const NotificationPage(),
-                          ),
-                        ),
+                        onTap: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (c) => const NotificationPage(),
+                            ),
+                          );
+                          NotificationService.getUnreadCount();
+                        },
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.2),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(
-                            Icons.notifications_outlined,
-                            color: Colors.white,
-                            size: 24,
+                          child: ValueListenableBuilder<int>(
+                            valueListenable:
+                                NotificationService.unreadCountNotifier,
+                            builder: (context, count, child) {
+                              return Badge(
+                                isLabelVisible:
+                                    count >
+                                    0, 
+                                label: Text(
+                                  '$count',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                                backgroundColor: Colors.red,
+                                child: const Icon(
+                                  Icons.notifications_outlined,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                              );
+                            },
                           ),
                         ),
                       ),
@@ -343,9 +368,9 @@ class _ClubHomePageState extends State<ClubHomePage> {
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                     const SizedBox(height: 5),
-                                    Text(
+                                    const Text(
                                       "Tin tức & Sự kiện",
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         color: Colors.grey,
                                         fontSize: 12,
                                       ),

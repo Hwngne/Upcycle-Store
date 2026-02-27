@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'auth_service.dart'; // Đảm bảo import đúng file này
+import 'auth_service.dart'; 
 
 const String baseUrl = 'http://localhost:5000/api'; // Cho web/simulator
 //const String baseUrl = 'http://10.0.2.2:5000/api'; // Cho Android Emulator
@@ -39,7 +39,7 @@ class EarnService {
       // Gọi list về và lọc
       final response = await http.get(
         Uri.parse('$baseUrl/earn/quizzes'),
-        headers: await _getHeaders(), // ✅ Dùng hàm chung
+        headers: await _getHeaders(), 
       );
 
       if (response.statusCode == 200) {
@@ -68,7 +68,7 @@ class EarnService {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/earn/quizzes'),
-        headers: await _getHeaders(), // ✅ Dùng hàm chung
+        headers: await _getHeaders(), 
       );
 
       if (response.statusCode == 200) {
@@ -86,7 +86,7 @@ class EarnService {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/earn/article'),
-        headers: await _getHeaders(), // ✅ Dùng hàm chung
+        headers: await _getHeaders(), 
         body: jsonEncode({"articleId": articleId}),
       );
 
@@ -108,7 +108,7 @@ class EarnService {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/earn/quiz'),
-        headers: await _getHeaders(), // ✅ Dùng hàm chung
+        headers: await _getHeaders(), 
         body: jsonEncode({"quizId": quizId}),
       );
 
@@ -137,7 +137,7 @@ class EarnService {
       );
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body); // Trả về nguyên cục JSON
+        return jsonDecode(response.body); 
       }
       return {'videos': [], 'doneToday': 0};
     } catch (e) {

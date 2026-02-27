@@ -44,32 +44,34 @@ class _LoginPageState extends State<LoginPage> {
 
     // D. Tắt loading
     if (!mounted) return;
-    Navigator.pop(context); // Đóng dialog loading
+    Navigator.pop(context); 
 
     // E. Kiểm tra kết quả
     if (result['success'] == true) {
       final String rawRole = result['role'] ?? "student";
       final String role = rawRole.toLowerCase();
-      print("🔍 DEBUG FINAL CHECK: Name='${UserData.name}', Role='${UserData.role}'");
+      print(
+        " DEBUG FINAL CHECK: Name='${UserData.name}', Role='${UserData.role}'",
+      );
 
       bool isFirstLogin = result['isFirstLogin'] ?? false;
 
       if (isFirstLogin) {
-        // 👉 TRƯỜNG HỢP 1: Lần đầu đăng nhập -> Sang trang Đổi mật khẩu
+        //  TRƯỜNG HỢP 1: Lần đầu đăng nhập -> Sang trang Đổi mật khẩu
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const ChangePasswordPage()),
         );
       } else {
         if (role == 'club') {
-          print("✅ Role is CLUB -> Navigate to ClubLayout");
+          print(" Role is CLUB -> Navigate to ClubLayout");
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (_) => const ClubLayout()),
           );
         } else if (role == 'student') {
           // Chỉ vào đây khi role CHÍNH XÁC là 'student'
-          print("✅ Role is STUDENT -> Navigate to MobileLayout");
+          print(" Role is STUDENT -> Navigate to MobileLayout");
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (_) => const MobileLayout()),
@@ -91,7 +93,7 @@ class _LoginPageState extends State<LoginPage> {
         }
       }
     } else {
-      // Đăng nhập thất bại (Sai pass, user không tồn tại...)
+      // Đăng nhập thất bại
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result['message'] ?? "Đăng nhập thất bại!"),
@@ -108,7 +110,7 @@ class _LoginPageState extends State<LoginPage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // 1. HEADER CONG MÀU ĐỎ (Giữ nguyên)
+            // 1. HEADER CONG MÀU ĐỎ
             Stack(
               alignment: Alignment.bottomCenter,
               children: [
@@ -187,7 +189,7 @@ class _LoginPageState extends State<LoginPage> {
                     alignment: Alignment.centerRight,
                     child: TextButton(
                       onPressed: () {
-                        // Có thể làm chức năng quên mật khẩu sau
+                        // chức năng quên mật khẩu sau
                       },
                       child: const Text(
                         "Quên mật khẩu?",
@@ -225,8 +227,6 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
 
-                  // 👇 3. ĐÃ XÓA PHẦN NÚT "ĐĂNG KÝ NGAY" Ở DƯỚI NÀY
-                  // Vì User do Admin cấp, không cho tự đăng ký nữa.
                   const SizedBox(height: 50),
                 ],
               ),
@@ -237,7 +237,7 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // WIDGET TEXT FIELD (Giữ nguyên logic Mắt thần của bạn)
+  // WIDGET TEXT FIELD
   Widget _buildTextField({
     required TextEditingController controller,
     required IconData icon,
@@ -252,7 +252,7 @@ class _LoginPageState extends State<LoginPage> {
           BoxShadow(
             color: Colors.grey.withOpacity(
               0.1,
-            ), // Sửa lại withOpacity cho tương thích bản cũ nếu cần
+            ), 
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -289,7 +289,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 }
 
-// Custom Clipper (Giữ nguyên)
+// Custom Clipper 
 class BottomCurveClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {

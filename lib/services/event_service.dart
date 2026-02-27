@@ -9,11 +9,11 @@ import 'package:file_picker/file_picker.dart';
 class EventService {
   static String get serverUrl {
     if (kIsWeb) {
-      return "http://localhost:5000"; // Web chạy localhost
+      return "http://localhost:5000"; 
     } else if (Platform.isAndroid) {
-      return "http://10.0.2.2:5000"; // Android Emulator
+      return "http://10.0.2.2:5000"; 
     } else {
-      return "http://localhost:5000"; // iOS Simulator
+      return "http://localhost:5000"; 
     }
   }
 
