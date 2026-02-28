@@ -5,7 +5,7 @@ import 'auth_service.dart';
 import 'api_constrants.dart';
 
 class NotificationService {
-  static String get baseUrl => "${ApiConstants.baseUrl}/api/notifications";
+  static String get baseUrl => "${ApiConstants.baseUrl}/notifications";
 
   static ValueNotifier<int> unreadCountNotifier = ValueNotifier<int>(0);
 

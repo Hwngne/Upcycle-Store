@@ -1,24 +1,13 @@
 import 'dart:convert';
-import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import 'api_constrants.dart';
 
 class EventService {
-  static String get serverUrl {
-    if (kIsWeb) {
-      return "http://localhost:5000"; 
-    } else if (Platform.isAndroid) {
-      return "http://10.0.2.2:5000"; 
-    } else {
-      return "http://localhost:5000"; 
-    }
-  }
-
-  static String get baseUrl => "$serverUrl/api/event-requests";
-  static String get configUrl => "$serverUrl/api/config";
+  static String get baseUrl => "${ApiConstants.baseUrl}/event-requests";
+  static String get configUrl => "${ApiConstants.baseUrl}/config";
 
   static Future<Map<String, String>> _getHeaders() async {
     final token = await AuthService.getToken();

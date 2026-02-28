@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/event_service.dart';
+import '../services/api_constrants.dart';
 
 class BannerSlider extends StatefulWidget {
   const BannerSlider({super.key});
@@ -76,10 +77,8 @@ class _BannerSliderState extends State<BannerSlider> {
   // Hàm xử lý link ảnh
   String _getImageUrl(String url) {
     if (url.startsWith('http')) return url;
-    return "${EventService.serverUrl}/$url".replaceAll(
-      RegExp(r'(?<!:)/{2,}'),
-      '/',
-    );
+    String serverUrl = ApiConstants.serverUrl;
+    return "$serverUrl/$url".replaceAll(RegExp(r'(?<!:)/{2,}'), '/');
   }
 
   @override

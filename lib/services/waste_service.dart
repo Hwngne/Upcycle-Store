@@ -1,8 +1,9 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'api_constrants.dart';
 
 class WasteService {
-  static const String baseUrl = "http://localhost:5000/api/wastestations";
+  static const String baseUrl = "${ApiConstants.baseUrl}/wastestations";
 
   static Future<List<dynamic>> fetchStations() async {
     try {

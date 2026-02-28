@@ -1,14 +1,13 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'auth_service.dart'; 
+import 'auth_service.dart';
+import 'api_constrants.dart';
 
-const String baseUrl = 'http://localhost:5000/api'; // Cho web/simulator
-//const String baseUrl = 'http://10.0.2.2:5000/api'; // Cho Android Emulator
+const String baseUrl = '${ApiConstants.baseUrl}/earn';
 
 class EarnService {
-  
   static Future<Map<String, String>> _getHeaders() async {
-    final token = await AuthService.getToken(); 
+    final token = await AuthService.getToken();
     return {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $token',
@@ -19,8 +18,8 @@ class EarnService {
   static Future<Map<String, dynamic>> getArticles() async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/earn/articles'),
-        headers: await _getHeaders(), 
+        Uri.parse('$baseUrl/articles'),
+        headers: await _getHeaders(),
       );
 
       if (response.statusCode == 200) {
@@ -38,8 +37,8 @@ class EarnService {
     try {
       // Gọi list về và lọc
       final response = await http.get(
-        Uri.parse('$baseUrl/earn/quizzes'),
-        headers: await _getHeaders(), 
+        Uri.parse('$baseUrl/quizzes'),
+        headers: await _getHeaders(),
       );
 
       if (response.statusCode == 200) {
@@ -67,8 +66,8 @@ class EarnService {
   static Future<Map<String, dynamic>> getQuizzes() async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/earn/quizzes'),
-        headers: await _getHeaders(), 
+        Uri.parse('$baseUrl/quizzes'),
+        headers: await _getHeaders(),
       );
 
       if (response.statusCode == 200) {
@@ -82,11 +81,13 @@ class EarnService {
   }
 
   // --- 4. NHẬN ĐIỂM BÀI BÁO ---
-  static Future<Map<String, dynamic>> claimArticlePoints(String articleId) async {
+  static Future<Map<String, dynamic>> claimArticlePoints(
+    String articleId,
+  ) async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/earn/article'),
-        headers: await _getHeaders(), 
+        Uri.parse('$baseUrl/article'),
+        headers: await _getHeaders(),
         body: jsonEncode({"articleId": articleId}),
       );
 
@@ -107,8 +108,8 @@ class EarnService {
   static Future<Map<String, dynamic>?> claimQuiz(String quizId) async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/earn/quiz'),
-        headers: await _getHeaders(), 
+        Uri.parse('$baseUrl/quiz'),
+        headers: await _getHeaders(),
         body: jsonEncode({"quizId": quizId}),
       );
 
@@ -132,12 +133,12 @@ class EarnService {
   static Future<Map<String, dynamic>> getVideos() async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/earn/videos'),
+        Uri.parse('$baseUrl/videos'),
         headers: await _getHeaders(),
       );
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body); 
+        return jsonDecode(response.body);
       }
       return {'videos': [], 'doneToday': 0};
     } catch (e) {
@@ -150,11 +151,11 @@ class EarnService {
   static Future<bool> claimVideoPoints(String videoId) async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/earn/video/claim'),
+        Uri.parse('$baseUrl/video/claim'),
         headers: await _getHeaders(),
         body: jsonEncode({"videoId": videoId}),
       );
-      
+
       final data = jsonDecode(response.body);
       if (response.statusCode == 200 && data['success'] == true) {
         return true; // Thành công
@@ -171,11 +172,11 @@ class EarnService {
   static Future<bool> saveSpinResult(int points) async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/earn/spin'),
+        Uri.parse('$baseUrl/spin'),
         headers: await _getHeaders(),
         body: jsonEncode({"points": points}),
       );
-      
+
       if (response.statusCode == 200) {
         return true;
       }

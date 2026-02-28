@@ -1,17 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:flutter/foundation.dart'; // Để dùng kIsWeb
-import 'auth_service.dart'; // Import để lấy Token chuẩn
+import 'auth_service.dart';
+import 'api_constrants.dart';
 
 class GiftService {
-  // Logic BaseURL thông minh (Web/Android)
-  static String get baseUrl {
-    if (kIsWeb) {
-      return 'http://localhost:5000/api';
-    } else {
-      return 'http://10.0.2.2:5000/api';
-    }
-  }
+  static const String baseUrl = ApiConstants.baseUrl;
 
   // 1. Lấy danh sách quà
   Future<List<dynamic>> fetchGifts() async {
@@ -32,8 +25,6 @@ class GiftService {
   // 2. Đổi quà
   Future<Map<String, dynamic>> redeemGift(String giftId) async {
     final url = Uri.parse('$baseUrl/gifts/redeem');
-
-    // Lấy Token từ AuthService
     final String? token = await AuthService.getToken();
 
     if (token == null || token.isEmpty) {
@@ -48,7 +39,7 @@ class GiftService {
         url,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token', // Gửi token
+          'Authorization': 'Bearer $token',
         },
         body: jsonEncode({'giftId': giftId}),
       );
@@ -73,20 +64,16 @@ class GiftService {
     }
   }
 
-  // 3. Lấy lịch sử giao dịch (Hàm này UI TransactionHistoryPage đang gọi)
+  // 3. Lấy lịch sử giao dịch
   Future<List<dynamic>> fetchHistory() async {
     final url = Uri.parse('$baseUrl/gifts/history');
-
-    // Cần Token để biết lịch sử của ai
     final String? token = await AuthService.getToken();
     if (token == null) return [];
 
     try {
       final response = await http.get(
         url,
-        headers: {
-          'Authorization': 'Bearer $token', // Bắt buộc có token
-        },
+        headers: {'Authorization': 'Bearer $token'},
       );
 
       if (response.statusCode == 200) {
@@ -96,6 +83,6 @@ class GiftService {
     } catch (e) {
       print('Lỗi fetchHistory: $e');
     }
-    return []; // Trả về rỗng nếu lỗi
+    return [];
   }
 }

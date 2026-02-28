@@ -1,5 +1,5 @@
 import 'package:socket_io_client/socket_io_client.dart' as IO;
-import 'api_constrants.dart'; // Lưu ý tên file import của bạn
+import 'api_constrants.dart';
 
 class SocketService {
   static final SocketService _instance = SocketService._internal();
@@ -13,7 +13,7 @@ class SocketService {
   void initSocket(String myId) {
     if (socket != null && socket!.connected) return;
 
-    socket = IO.io(ApiConstants.baseUrl, <String, dynamic>{
+    socket = IO.io(ApiConstants.serverUrl, <String, dynamic>{
       'transports': ['websocket'],
       'autoConnect': false,
     });

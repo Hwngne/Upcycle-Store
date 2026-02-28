@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'user_service.dart';
 import 'auth_service.dart';
+import 'api_constrants.dart';
 
 // --- MODEL FORUM POST ---
 class ForumPost {
@@ -61,9 +62,9 @@ class ForumPost {
 
 class ForumService {
   //  Đổi IP backend
-  static const String baseUrl = "http://localhost:5000/api/posts";
-  static const String configUrl = "http://localhost:5000/api/config";
-  static const String serverUrl = "http://localhost:5000";
+  static const String baseUrl = "${ApiConstants.baseUrl}/posts";
+  static const String configUrl = "${ApiConstants.baseUrl}/config";
+  static const String serverUrl = ApiConstants.serverUrl;
 
   // --- 1. LẤY DANH SÁCH BÀI VIẾT ---
   static Future<List<ForumPost>> fetchPosts() async {
@@ -220,7 +221,7 @@ class ForumService {
         return false;
       }
     } catch (e) {
-      print("❌ Lỗi KẾT NỐI (Exception): $e");
+      print(" Lỗi KẾT NỐI (Exception): $e");
       return false;
     }
   }
@@ -449,7 +450,7 @@ class ForumService {
       final token = await AuthService.getToken();
 
       if (UserData.email == null || UserData.email!.isEmpty) {
-        print("❌ LỖI: UserData.email đang bị rỗng!");
+        print(" LỖI: UserData.email đang bị rỗng!");
         return null;
       }
 

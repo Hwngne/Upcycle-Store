@@ -2,10 +2,10 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'user_service.dart';
+import 'api_constrants.dart';
 
 class AuthService {
-  // ⚠️ Đổi IP máy tính của bạn ở đây
-  static const String baseUrl = "http://localhost:5000/api/users";
+  static const String baseUrl = "${ApiConstants.baseUrl}/users";
 
   // --- HÀM LẤY TOKEN (Private Helper) ---
   static Future<String> getToken() async {
@@ -13,7 +13,7 @@ class AuthService {
     return prefs.getString('user_token') ?? '';
   }
 
-  // --- 1. ĐĂNG NHẬP (Giữ nguyên logic của bạn) ---
+  // --- 1. ĐĂNG NHẬP  ---
   static Future<Map<String, dynamic>> login(
     String email,
     String password,
@@ -310,7 +310,7 @@ class AuthService {
       }
       return null;
     } catch (e) {
-      print("❌ Lỗi lấy profile: $e");
+      print(" Lỗi lấy profile: $e");
       return null;
     }
   }

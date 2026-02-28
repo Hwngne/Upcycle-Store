@@ -48,7 +48,7 @@ dependencies:
   image_picker: ^1.0.7
   
   # Chọn file tài liệu (PDF, Word...)
-  file_picker: ^6.1.1
+  file_picker: ^8.0.0
   # Mở liên kết URL
   url_launcher: ^6.3.2
   

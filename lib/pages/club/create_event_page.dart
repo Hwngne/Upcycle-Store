@@ -931,7 +931,7 @@ class _CreateEventPageState extends State<CreateEventPage> {
                                   child: ElevatedButton(
                                     onPressed: () {
                                       if (_validateInputs())
-                                        _showPreviewDialog(); // Bấm xem trước
+                                        _showPreviewDialog();
                                     },
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.white,
@@ -1007,10 +1007,15 @@ class _CreateEventPageState extends State<CreateEventPage> {
       context: context,
       builder: (context) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: SingleChildScrollView(
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // --- HEADER ---
               Padding(
                 padding: const EdgeInsets.all(15),
                 child: Row(
@@ -1051,95 +1056,133 @@ class _CreateEventPageState extends State<CreateEventPage> {
                   ],
                 ),
               ),
-              Container(
-                color: const Color(0xFFFFF5F5),
-                padding: const EdgeInsets.all(15),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _nameController.text.toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF2C2C54),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    // Ảnh xem trước
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: _selectedImage != null
-                          ? (kIsWeb
-                                ? Image.network(
-                                    _selectedImage!.path,
-                                    height: 150,
-                                    width: double.infinity,
-                                    fit: BoxFit.cover,
-                                  )
-                                : Image.file(
-                                    File(_selectedImage!.path),
-                                    height: 150,
-                                    width: double.infinity,
-                                    fit: BoxFit.cover,
-                                  ))
-                          : Image.network(
-                              "https://picsum.photos/400/200",
-                              height: 150,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                            ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      _descController.text,
-                      style: TextStyle(color: Colors.grey[700], fontSize: 13),
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 15),
-                    const Text(
-                      "Thông tin sự kiện",
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    _buildPreviewInfo(
-                      "Thời gian:",
-                      "$_startTime - $_endTime, ngày $_selectedDate",
-                    ),
-                    _buildPreviewInfo("Địa điểm:", _locationController.text),
-                    const SizedBox(height: 10),
-                    Row(
+              const Divider(height: 1),
+
+              // --- NỘI DUNG ---
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Container(
+                    color: const Color(0xFFFFF5F5),
+                    padding: const EdgeInsets.all(15),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (_selectedTopic != null) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.blue[50],
+                              borderRadius: BorderRadius.circular(5),
+                              border: Border.all(color: Colors.blue.shade200),
+                            ),
+                            child: Text(
+                              "Chủ đề: $_selectedTopic",
+                              style: TextStyle(
+                                color: Colors.blue[800],
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+
+                        Text(
+                          _nameController.text.toUpperCase(),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF2C2C54),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+
+                        // Ảnh xem trước
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: _selectedImage != null
+                              ? (kIsWeb
+                                    ? Image.network(
+                                        _selectedImage!.path,
+                                        height: 150,
+                                        width: double.infinity,
+                                        fit: BoxFit.cover,
+                                      )
+                                    : Image.file(
+                                        File(_selectedImage!.path),
+                                        height: 150,
+                                        width: double.infinity,
+                                        fit: BoxFit.cover,
+                                      ))
+                              : Image.network(
+                                  "https://picsum.photos/400/200",
+                                  height: 150,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          _descController.text,
+                          style: TextStyle(
+                            color: Colors.grey[700],
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 15),
                         const Text(
-                          "Giá vé: ",
+                          "Thông tin sự kiện",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        _buildPreviewInfo(
+                          "Thời gian:",
+                          "$_startTime - $_endTime, ngày $_selectedDate",
+                        ),
+                        _buildPreviewInfo(
+                          "Địa điểm:",
+                          _locationController.text,
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            const Text(
+                              "Giá vé: ",
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              _isPaid
+                                  ? "${_priceController.text} VND/người"
+                                  : "Miễn phí",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        const Text(
+                          "Đăng ký:",
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                         Text(
-                          _isPaid
-                              ? "${_priceController.text} VND/người"
-                              : "Miễn phí",
+                          _formLinkController.text,
                           style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.red,
+                            color: Colors.blue,
+                            decoration: TextDecoration.underline,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      "Đăng ký:",
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      _formLinkController.text,
-                      style: const TextStyle(
-                        color: Colors.blue,
-                        decoration: TextDecoration.underline,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
+
+              // --- FOOTER NÚT BẤM ---
+              const Divider(height: 1),
               Padding(
                 padding: const EdgeInsets.all(15),
                 child: Row(
@@ -1642,7 +1685,7 @@ class _PromotionCalendarDialogState extends State<PromotionCalendarDialog> {
                     rangeSelectionMode: RangeSelectionMode.toggledOn,
 
                     headerStyle: const HeaderStyle(
-                      formatButtonVisible: false, 
+                      formatButtonVisible: false,
                       titleCentered: true,
                       titleTextStyle: TextStyle(
                         fontSize: 16,
@@ -1674,7 +1717,7 @@ class _PromotionCalendarDialogState extends State<PromotionCalendarDialog> {
                       defaultBuilder: (context, day, focusedDay) {
                         String key = "${day.day}/${day.month}/${day.year}";
                         int used = _slotCounts[key] ?? 0;
-                        int available = 3 - used; 
+                        int available = 3 - used;
 
                         if (used >= 3) {
                           return Container(
@@ -1726,7 +1769,7 @@ class _PromotionCalendarDialogState extends State<PromotionCalendarDialog> {
                         );
                       },
 
-                      // 2. Ngày bị disable 
+                      // 2. Ngày bị disable
                       disabledBuilder: (context, day, focusedDay) {
                         return Center(
                           child: Text(
@@ -1747,13 +1790,10 @@ class _PromotionCalendarDialogState extends State<PromotionCalendarDialog> {
                             margin: const EdgeInsetsDirectional.only(
                               top: 6,
                               bottom: 6,
-                            ), 
+                            ),
                             decoration: BoxDecoration(
-                              color: Colors.blue.withOpacity(
-                                0.2,
-                              ), 
-                              shape: BoxShape
-                                  .rectangle, 
+                              color: Colors.blue.withOpacity(0.2),
+                              shape: BoxShape.rectangle,
                               borderRadius: BorderRadius.circular(10),
                             ),
                           );
@@ -1824,7 +1864,7 @@ class _PromotionCalendarDialogState extends State<PromotionCalendarDialog> {
     );
   }
 
-  // Widget helper để vẽ ngày đang chọn 
+  // Widget helper để vẽ ngày đang chọn
   Widget _buildSelectedRange(DateTime day, bool isEnd) {
     return Container(
       margin: const EdgeInsets.all(6),

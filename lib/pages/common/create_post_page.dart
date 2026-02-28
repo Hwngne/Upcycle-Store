@@ -184,6 +184,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // --- PHẦN HEADER CỦA BẢNG XEM TRƯỚC ---
                 Padding(
                   padding: const EdgeInsets.all(15),
                   child: Row(
@@ -204,100 +205,135 @@ class _CreatePostPageState extends State<CreatePostPage> {
                   ),
                 ),
                 const Divider(height: 1),
-                SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        height: 200,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Colors.grey[200],
-                          image: DecorationImage(
-                            image: previewImage,
-                            fit: BoxFit.cover,
+
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          height: 200,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[200],
+                            image: DecorationImage(
+                              image: previewImage,
+                              fit: BoxFit.cover,
+                            ),
                           ),
                         ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(15),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (widget.postType == "Sản phẩm") ...[
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 5,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: _productType == "Miễn phí"
-                                          ? const Color.fromARGB(
-                                              255,
-                                              162,
-                                              202,
-                                              224,
-                                            )
-                                          : Colors.red,
-                                      borderRadius: BorderRadius.circular(5),
-                                    ),
-                                    child: Text(
-                                      _productType == "Miễn phí"
-                                          ? "MIỄN PHÍ"
-                                          : "${formatCurrency(_priceController.text)} đ",
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
+                        Padding(
+                          padding: const EdgeInsets.all(15),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // --- HIỂN THỊ TAG SẢN PHẨM ---
+                              if (widget.postType == "Sản phẩm") ...[
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 5,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: _productType == "Miễn phí"
+                                            ? const Color.fromARGB(
+                                                255,
+                                                162,
+                                                202,
+                                                224,
+                                              )
+                                            : Colors.red,
+                                        borderRadius: BorderRadius.circular(5),
+                                      ),
+                                      child: Text(
+                                        _productType == "Miễn phí"
+                                            ? "MIỄN PHÍ"
+                                            : "${formatCurrency(_priceController.text)} đ",
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 5,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[200],
-                                      borderRadius: BorderRadius.circular(5),
-                                    ),
-                                    child: Text(
-                                      _selectedCategory ?? "",
-                                      style: TextStyle(
-                                        color: Colors.grey[800],
-                                        fontSize: 12,
+                                    const SizedBox(width: 10),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 5,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[200],
+                                        borderRadius: BorderRadius.circular(5),
+                                      ),
+                                      child: Text(
+                                        _selectedCategory ?? "",
+                                        style: TextStyle(
+                                          color: Colors.grey[800],
+                                          fontSize: 12,
+                                        ),
                                       ),
                                     ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                              ],
+
+                              if (widget.postType == "Kiến thức" &&
+                                  _selectedTopic != null) ...[
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 5,
                                   ),
-                                ],
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue[50],
+                                    borderRadius: BorderRadius.circular(5),
+                                    border: Border.all(
+                                      color: Colors.blue.shade200,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    "Chủ đề: $_selectedTopic",
+                                    style: TextStyle(
+                                      color: Colors.blue[800],
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                              ],
+
+                              // --- TIÊU ĐỀ VÀ NỘI DUNG ---
+                              Text(
+                                _titleController.text,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                               const SizedBox(height: 10),
+                              Text(_contentController.text),
+
+                              if (_pickedFile != null) ...[
+                                const SizedBox(height: 15),
+                                Text(
+                                  "Đính kèm: ${_pickedFile!.name}",
+                                  style: const TextStyle(color: Colors.blue),
+                                ),
+                              ],
                             ],
-                            Text(
-                              _titleController.text,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(_contentController.text),
-                            if (_pickedFile != null) ...[
-                              const SizedBox(height: 15),
-                              Text(
-                                "Đính kèm: ${_pickedFile!.name}",
-                                style: const TextStyle(color: Colors.blue),
-                              ),
-                            ],
-                          ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
+
+                // --- PHẦN FOOTER --
                 const Divider(height: 1),
                 Padding(
                   padding: const EdgeInsets.all(15),
@@ -305,8 +341,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () {
-                        Navigator.pop(context);
-                        _handlePost();
+                        Navigator.pop(context); // Đóng Dialog
+                        _handlePost(); // Gọi hàm Đăng
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF1A237E),

@@ -946,13 +946,15 @@ class _ForumPageState extends State<ForumPage> {
     );
   }
 
-  // NÚT XÓA CHO CHÍNH CHỦ VỚI GIAO DIỆN MỚI
+  // NÚT XÓA CHO CHÍNH CHỦ
   Widget _buildPostItem(ForumPost post, int index) {
     bool isOwner =
         post.authorName == UserData.name ||
         post.authorName == UserData.studentId;
 
     bool isProduct = post.tagName == "Sản phẩm";
+    bool isKnowledge = post.tagName == "Kiến thức";
+    bool isEvent = post.tagName == "Sự kiện";
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1079,11 +1081,54 @@ class _ForumPageState extends State<ForumPage> {
             ],
           ),
           const SizedBox(height: 12),
+          if (!isProduct &&
+              (isKnowledge || isEvent) &&
+              post.topic != null &&
+              post.topic!.isNotEmpty) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: isKnowledge
+                    ? Colors.blue.shade50
+                    : Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(5),
+                border: Border.all(
+                  color: isKnowledge
+                      ? Colors.blue.shade200
+                      : Colors.orange.shade200,
+                ),
+              ),
+              child: Text(
+                "Chủ đề: ${post.topic}",
+                style: TextStyle(
+                  color: isKnowledge
+                      ? Colors.blue.shade800
+                      : Colors.orange.shade800,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
 
-          // 2. NỘI DUNG MÔ TẢ TRÊN CÙNG
+          if (!isProduct && post.title != null && post.title!.isNotEmpty) ...[
+            Text(
+              post.title!.toUpperCase(),
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF2C2C54),
+              ),
+            ),
+            const SizedBox(height: 6),
+          ],
+
+          // -- NỘI DUNG CHÍNH -
           Text(post.content, style: const TextStyle(fontSize: 14, height: 1.4)),
           const SizedBox(height: 12),
 
+          // 3. KHỐI HIỂN THỊ ẢNH & THÔNG TIN SẢN PHẨM/SỰ KIỆN
           if (isProduct)
             Container(
               decoration: BoxDecoration(
@@ -1101,7 +1146,6 @@ class _ForumPageState extends State<ForumPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Hình ảnh sản phẩm
                   if (post.image != null)
                     ClipRRect(
                       borderRadius: const BorderRadius.vertical(
@@ -1122,14 +1166,11 @@ class _ForumPageState extends State<ForumPage> {
                         ),
                       ),
                     ),
-
-                  // Thông tin sản phẩm
                   Padding(
                     padding: const EdgeInsets.all(12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Tiêu đề sản phẩm
                         Text(
                           post.title ?? post.category ?? "Sản phẩm",
                           style: const TextStyle(
@@ -1141,12 +1182,9 @@ class _ForumPageState extends State<ForumPage> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 8),
-
-                        // Giá và Tình trạng
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            // Giá / Miễn phí
                             Text(
                               post.price == null
                                   ? "Miễn phí"
@@ -1159,8 +1197,6 @@ class _ForumPageState extends State<ForumPage> {
                                 fontSize: 16,
                               ),
                             ),
-
-                            // Tình trạng
                             Text(
                               (post.quantity != null && post.quantity! > 0)
                                   ? "Còn hàng"

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
+import 'api_constrants.dart';
 
 // ==========================================
 // 1. CLASS USERDATA (KHO DỮ LIỆU TOÀN CỤC)
@@ -43,6 +44,8 @@ class UserData {
 // 2. CLASS USERSERVICE (XỬ LÝ LOGIC)
 // ==========================================
 class UserService {
+  static const String baseUrl = "${ApiConstants.baseUrl}/users";
+
   static Future<void> fetchUserInfo() async {
     try {
       final data = await getUserProfile();
@@ -61,8 +64,9 @@ class UserService {
         } else if (data['points'] != null) {
           UserData.points = int.tryParse(data['points'].toString());
         }
-        if (data['rank'] != null)
+        if (data['rank'] != null) {
           UserData.rank = int.tryParse(data['rank'].toString());
+        }
 
         if (data['attendanceHistory'] != null) {
           UserData.attendanceHistory = List<String>.from(
@@ -76,19 +80,39 @@ class UserService {
   }
 
   Future<bool> updateUserProfile(
-    String name,
     String dob,
     String gender,
     String phone,
   ) async {
     try {
-      await Future.delayed(const Duration(seconds: 2));
-      UserData.name = name;
-      UserData.dateOfBirth = dob;
-      UserData.gender = gender;
-      UserData.phone = phone;
-      return true;
+      final token = await AuthService.getToken();
+      final url = Uri.parse('$baseUrl/update-profile'); 
+
+      final response = await http.put(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'dateOfBirth': dob,
+          'gender': gender,
+          'phone': phone,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        UserData.dateOfBirth = dob;
+        UserData.gender = gender;
+        UserData.phone = phone;
+        return true;
+      } else {
+        print("Lỗi từ Server: ${response.body}");
+        return false;
+      }
+
     } catch (e) {
+      print("Lỗi cập nhật hồ sơ: $e");
       return false;
     }
   }
@@ -96,7 +120,8 @@ class UserService {
   // Hàm gọi API lấy thông tin
   static Future<Map<String, dynamic>> getUserProfile() async {
     final token = await AuthService.getToken();
-    final url = Uri.parse('${AuthService.baseUrl}/profile');
+
+    final url = Uri.parse('$baseUrl/profile');
 
     final response = await http.get(
       url,

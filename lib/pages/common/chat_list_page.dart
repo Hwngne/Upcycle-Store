@@ -52,7 +52,7 @@ class _ChatListPageState extends State<ChatListPage>
 
   // Kết nối Socket để lắng nghe tin nhắn mới ngay tại danh sách
   void _connectSocket() {
-    socket = IO.io(ApiConstants.baseUrl, <String, dynamic>{
+    socket = IO.io(ApiConstants.serverUrl, <String, dynamic>{
       'transports': ['websocket'],
       'autoConnect': false,
     });
@@ -133,7 +133,7 @@ class _ChatListPageState extends State<ChatListPage>
     try {
       final token = await AuthService.getToken();
       final url = Uri.parse(
-        '${ApiConstants.baseUrl}/api/chat/conversations/${UserData.id}',
+        '${ApiConstants.baseUrl}/chat/conversations/${UserData.id}',
       );
       final response = await http.get(
         url,
@@ -184,7 +184,7 @@ class _ChatListPageState extends State<ChatListPage>
 
     try {
       final token = await AuthService.getToken();
-      final url = Uri.parse('${ApiConstants.baseUrl}/api/chat/mark-read');
+      final url = Uri.parse('${ApiConstants.baseUrl}/chat/mark-read');
       await http.put(
         url,
         headers: {

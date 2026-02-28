@@ -53,7 +53,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
   bool _isPartnerTyping = false;
   Timer? _typingTimer;
 
-  final String serverUrl = ApiConstants.baseUrl;
+  final String baseUrl = ApiConstants.baseUrl;
+  final String serverUrl = ApiConstants.serverUrl;
 
   @override
   void initState() {
@@ -308,7 +309,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
       final token = await AuthService.getToken();
       var request = http.MultipartRequest(
         'POST',
-        Uri.parse('$serverUrl/api/chat/upload-image'),
+        Uri.parse('$baseUrl/chat/upload-image'),
       );
       request.headers['Authorization'] = 'Bearer $token';
       request.files.add(
@@ -402,7 +403,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
 
       final token = await AuthService.getToken();
       final uri = Uri.parse(
-        '$serverUrl/api/chat/$myId/${widget.partnerId}?page=$pageToLoad&limit=$_limit',
+        '$baseUrl/chat/$myId/${widget.partnerId}?page=$pageToLoad&limit=$_limit',
       );
       final response = await http.get(
         uri,
@@ -433,11 +434,13 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
       }
     } catch (e) {
       print("Lỗi tải tin nhắn: $e");
-      if (mounted)
+    } finally {
+      if (mounted) {
         setState(() {
           _isLoading = false;
           _isLoadingMore = false;
         });
+      }
     }
   }
 

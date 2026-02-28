@@ -1,18 +1,9 @@
-import 'package:flutter/foundation.dart'; 
-import 'dart:io'; 
-
 class ApiConstants {
-  // Hàm tự động chọn URL dựa trên thiết bị đang chạy
-  static String get baseUrl {
-    if (kIsWeb) {
-      //  Nếu chạy trên Chrome/Web
-      return "http://localhost:5000"; 
-    } else if (Platform.isAndroid) {
-      //  Nếu chạy trên Máy ảo Android (Emulator)
-      return "http://10.0.2.2:5000";
-    } else {
-      // Nếu chạy trên iOS Simulator hoặc Máy thật (cần IP LAN)
-      return "http://localhost:5000"; 
-    }
-  }
+  static const String serverIp = "192.168.2.14";
+  static const String port = "5000";
+
+  // Đường dẫn gốc dùng chung cho toàn bộ App
+  static const String baseUrl = "http://$serverIp:$port/api";
+  // Dùng cho gọi hình ảnh (Chỉ đến thư mục gốc của server)
+  static const String serverUrl = "http://$serverIp:$port";
 }
