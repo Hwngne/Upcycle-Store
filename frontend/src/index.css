@@ -1,0 +1,205 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+@config "../tailwind.config.js";
+
+@layer base {
+  :root {
+    /* ===== LOGIN PAGE – WARM LUXURY PALETTE ===== */
+
+    /* Background */
+    --background: 43 55% 94%;
+    /* #FAF4E5 */
+    --background-secondary: 43 50% 90%;
+    /* #E3CD9C */
+    --foreground: 6 90% 15%;
+    /* #4B0503 */
+
+    /* Card */
+    --card: 43 55% 96%;
+    --card-foreground: 6 90% 15%;
+    --card-shadow: 6 90% 15% / 0.08;
+
+    /* Popover */
+    --popover: 43 55% 96%;
+    --popover-foreground: 6 90% 15%;
+
+    /* ===== Brand colors ===== */
+    --primary: 6 90% 15%;
+    /* #4B0503 */
+    --primary-light: 43 84% 73%;
+    /* #F7DFA8 */
+    --primary-dark: 0 100% 37%;
+    /* #BE0000 */
+    --primary-foreground: 43 60% 95%;
+
+    --secondary: 43 50% 90%;
+    --secondary-foreground: 6 90% 15%;
+
+    --muted: 43 40% 92%;
+    --muted-foreground: 6 30% 35%;
+
+    --accent: 43 84% 73%;
+    --accent-foreground: 6 90% 15%;
+
+    /* States */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 98%;
+
+    --info: 215 90% 60%;
+    --info-foreground: 0 0% 98%;
+
+    /* Border & Input */
+    --border: 43 30% 85%;
+    /* #EAE4CD */
+    --input: 43 50% 80%;
+    --ring: 43 84% 73%;
+
+    /* ===== Gradients ===== */
+    --gradient-primary: linear-gradient(135deg,
+        #BE0000 0%,
+        #F7DFA8 100%);
+
+    --gradient-background: linear-gradient(180deg,
+        #FAF4E5 0%,
+        #E3CD9C 100%);
+
+    --gradient-card: linear-gradient(135deg,
+        rgba(255, 255, 255, 0.6),
+        rgba(255, 255, 255, 0.25));
+
+    /* ===== Shadows ===== */
+    --shadow-sm: 0 4px 12px rgba(75, 5, 3, 0.08);
+    --shadow-md: 0 8px 24px rgba(75, 5, 3, 0.12);
+    --shadow-lg: 0 16px 40px rgba(75, 5, 3, 0.16);
+    --shadow-glow: 0 0 40px rgba(247, 223, 168, 0.6);
+
+    /* Motion */
+    --transition-smooth: all 0.3s ease;
+    --transition-bounce: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+
+    --radius: 1rem;
+
+    /* ===== Sidebar ===== */
+    --sidebar-background: 6 90% 15%;
+    /* #4B0503 */
+    --sidebar-foreground: 43 60% 95%;
+    --sidebar-primary: 0 100% 37%;
+    /* #BE0000 */
+    --sidebar-primary-foreground: 43 60% 95%;
+    --sidebar-accent: 43 84% 73%;
+    --sidebar-accent-foreground: 6 90% 15%;
+    --sidebar-border: 6 60% 20%;
+    --sidebar-ring: 43 84% 73%;
+  }
+
+  /* ===== DARK MODE (WARM – NOT PURE BLACK) ===== */
+  .dark {
+    --background: 6 30% 8%;
+    --background-secondary: 6 25% 12%;
+    --foreground: 43 60% 95%;
+
+    --card: 6 30% 10%;
+    --card-foreground: 43 60% 95%;
+
+    --popover: 6 30% 10%;
+    --popover-foreground: 43 60% 95%;
+
+    --primary: 43 84% 73%;
+    --primary-foreground: 6 90% 15%;
+
+    --secondary: 6 25% 14%;
+    --secondary-foreground: 43 60% 95%;
+
+    --muted: 6 25% 14%;
+    --muted-foreground: 43 30% 70%;
+
+    --accent: 43 84% 73%;
+    --accent-foreground: 6 90% 15%;
+
+    --destructive: 0 62% 40%;
+    --destructive-foreground: 43 60% 95%;
+
+    --border: 6 25% 18%;
+    --input: 6 25% 18%;
+    --ring: 43 84% 73%;
+
+    --sidebar-background: 6 40% 10%;
+    --sidebar-foreground: 43 60% 95%;
+    --sidebar-primary: 43 84% 73%;
+    --sidebar-primary-foreground: 6 90% 15%;
+    --sidebar-accent: 6 30% 18%;
+    --sidebar-accent-foreground: 43 60% 95%;
+    --sidebar-border: 6 25% 18%;
+    --sidebar-ring: 43 84% 73%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .glass {
+    background: linear-gradient(135deg,
+        rgba(255, 255, 255, 0.55),
+        rgba(255, 255, 255, 0.25));
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+  }
+
+  .glow {
+    box-shadow:
+      0 0 40px rgba(247, 223, 168, 0.35),
+      0 0 80px rgba(247, 223, 168, 0.15);
+  }
+
+  .glow-strong {
+    box-shadow:
+      0 0 60px rgba(247, 223, 168, 0.45),
+      0 0 120px rgba(247, 223, 168, 0.25);
+  }
+}
+
+/* Chrome, Edge, Safari */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  /* độ rộng scroll dọc */
+  height: 8px;
+  /* độ cao scroll ngang */
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(247, 223, 168, 0.2);
+  /* màu nền track */
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(190, 0, 0, 0.5);
+  /* màu thanh scroll */
+  border-radius: 10px;
+  transition: background 0.3s;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(190, 0, 0, 0.8);
+  /* hover sáng hơn */
+}
+
+/* Firefox */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(190, 0, 0, 0.5) rgba(247, 223, 168, 0.2);
+}
