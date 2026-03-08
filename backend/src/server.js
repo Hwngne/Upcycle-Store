@@ -47,6 +47,36 @@ import activityHistoryRoutes from "./routes/activityHistoryRoutes.js";
 import adminAlertRoute from "./routes/adminAlertRoute.js";
 
 const app = express();
+
+// Manual CORS để bypass nếu proxy Render strip headers
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+
+  // Log để check Render logs sau
+  console.log(`[CORS DEBUG] Incoming Origin: ${origin || 'no-origin'}, Method: ${req.method}`);
+
+  // Cho phép exact + vercel domains
+  const isAllowed = !origin || 
+    origin === 'https://doan-environment.vercel.app' ||
+    origin === 'http://localhost:5173' ||
+    (origin && origin.endsWith('.vercel.app') && origin.startsWith('https://'));
+
+  if (isAllowed) {
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');  // fallback * nếu no origin
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With');
+    res.setHeader('Access-Control-Max-Age', '86400');  // cache preflight 24h
+  }
+
+  // Handle OPTIONS preflight manual (trả ngay 200, không chờ logic khác)
+  if (req.method === 'OPTIONS') {
+    console.log('[CORS DEBUG] Handling OPTIONS preflight');
+    return res.sendStatus(200);
+  }
+
+  next();
+});
 const PORT = process.env.PORT || 5001;
 
 
