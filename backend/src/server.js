@@ -60,23 +60,19 @@ const PORT = process.env.PORT || 5001;
 // );
 
 const allowedOrigins = [
-    "http://localhost:5173",
-    "https://doan-admin.onrender.com",
-    "https://doan-environment.vercel.app"
+  "http://localhost:5173",
+  "https://doan-admin.onrender.com",
+  "https://doan-environment.vercel.app"
 ];
 
-app.use(
-    cors({
-        origin: function (origin, callback) {
-            if (!origin || allowedOrigins.includes(origin)) {
-                callback(null, true);
-            } else {
-                callback(new Error("CORS not allowed"));
-            }
-        },
-        credentials: true
-    })
-);
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true,
+  methods: ["GET","POST","PUT","DELETE","PATCH","OPTIONS"],
+  allowedHeaders: ["Content-Type","Authorization"]
+}));
+
+app.options("*", cors()); 
 
 app.use(express.json());
 app.use(cookieParser());
