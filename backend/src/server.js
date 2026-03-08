@@ -50,12 +50,30 @@ const app = express();
 const PORT = process.env.PORT || 5001;
 
 
+// app.use(
+//     cors({
+//         origin: "http://localhost:5173", 
+//         credentials: true,
+//         methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+//         allowedHeaders: ["Content-Type", "Authorization"],
+//     })
+// );
+
+const allowedOrigins = [
+    "http://localhost:5173",
+    "https://doan-admin.onrender.com"
+];
+
 app.use(
     cors({
-        origin: "http://localhost:5173", 
-        credentials: true,
-        methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-        allowedHeaders: ["Content-Type", "Authorization"],
+        origin: function (origin, callback) {
+            if (!origin || allowedOrigins.includes(origin)) {
+                callback(null, true);
+            } else {
+                callback(new Error("CORS not allowed"));
+            }
+        },
+        credentials: true
     })
 );
 
@@ -64,14 +82,18 @@ app.use(cookieParser());
 
 connectDB();
 
+app.get("/", (req, res) => {
+    res.send("Backend is running 🚀");
+});
+
 // ===== ROUTE KHÔNG CẦN TOKEN =====
 app.use("/api/auth", authRoutes);
 
 // ===== ROUTE CẦN TOKEN =====
 app.use("/api/accounts", authenticate, requireChangedPassword, accountsRoute);
 
-// ===== GLOBAL ERROR =====
-app.use(errorHandler);
+// // ===== GLOBAL ERROR =====
+// app.use(errorHandler);
 
 app.use("/api/rewards", rewardsRoute);
 
@@ -97,6 +119,8 @@ app.use("/api/activity-histories", activityHistoryRoutes);
 
 app.use("/api/admin/alerts", adminAlertRoute);
 app.use("/api/admin/stats", statsRoutes);
+
+app.use(errorHandler);
 
 app.listen(PORT, () => {
     console.log(`Server đang chạy trên cổng ${PORT}`);
