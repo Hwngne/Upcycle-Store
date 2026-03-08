@@ -58,11 +58,18 @@ const PORT = process.env.PORT || 5001;
 //         allowedHeaders: ["Content-Type", "Authorization"],
 //     })
 // );
+// app.use(cors({
+//   origin: [
+//     "http://localhost:5173",
+//     "https://doan-environment.vercel.app"
+//   ],
+//   methods: ["GET","POST","PUT","DELETE","PATCH","OPTIONS"],
+//   allowedHeaders: ["Content-Type","Authorization"],
+//   credentials: true
+// }));
+
 app.use(cors({
-  origin: [
-    "http://localhost:5173",
-    "https://doan-environment.vercel.app"
-  ],
+  origin: [/vercel\.app$/, "http://localhost:5173"],
   methods: ["GET","POST","PUT","DELETE","PATCH","OPTIONS"],
   allowedHeaders: ["Content-Type","Authorization"],
   credentials: true
