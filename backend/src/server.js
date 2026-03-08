@@ -58,24 +58,29 @@ const PORT = process.env.PORT || 5001;
 //         allowedHeaders: ["Content-Type", "Authorization"],
 //     })
 // );
-// app.use(cors({
-//   origin: [
-//     "http://localhost:5173",
-//     "https://doan-environment.vercel.app"
-//   ],
-//   methods: ["GET","POST","PUT","DELETE","PATCH","OPTIONS"],
-//   allowedHeaders: ["Content-Type","Authorization"],
-//   credentials: true
-// }));
-
 app.use(cors({
-  origin: [/vercel\.app$/, "http://localhost:5173"],
-  methods: ["GET","POST","PUT","DELETE","PATCH","OPTIONS"],
-  allowedHeaders: ["Content-Type","Authorization"],
-  credentials: true
+  origin: function (origin, callback) {
+    // Cho phép các origin cụ thể + localhost + vercel domains
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'https://doan-environment.vercel.app',
+      // Nếu có preview branches: thêm regex
+    ];
+    if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  credentials: true,
+  optionsSuccessStatus: 200, // Một số browser cũ cần 200 thay 204
+  maxAge: 86400, // Cache preflight 24h
 }));
 
-app.options("*", cors());
+// Explicit handle preflight cho mọi route (dự phòng)
+app.options('*', cors());
 
 app.use(express.json());
 app.use(cookieParser());
@@ -83,7 +88,7 @@ app.use(cookieParser());
 connectDB();
 
 app.get("/", (req, res) => {
-    res.send("Backend is running 🚀");
+    res.send("Backend is running");
 });
 
 // ===== ROUTE KHÔNG CẦN TOKEN =====
