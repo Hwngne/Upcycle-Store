@@ -61,7 +61,8 @@ const PORT = process.env.PORT || 5001;
 
 const allowedOrigins = [
     "http://localhost:5173",
-    "https://doan-admin.onrender.com"
+    "https://doan-admin.onrender.com",
+    "https://doan-environment.vercel.app"
 ];
 
 app.use(
