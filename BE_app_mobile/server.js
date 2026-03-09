@@ -26,10 +26,9 @@ try {
     require('./src/models/messageModel'); 
     require('./src/models/notificationModel');
 } catch (error) {
-    console.error("⚠️ Lỗi nạp Model:", error.message);
+    console.error(" Lỗi nạp Model:", error.message);
 }
 
-// ... (Phần import Routes cũ giữ nguyên) ...
 const uploadRoutes = require('./src/routes/uploadRoutes');
 const userRoutes = require('./src/routes/userRoutes');
 const postRoutes = require('./src/routes/postRoutes');
