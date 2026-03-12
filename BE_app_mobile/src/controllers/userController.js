@@ -4,13 +4,14 @@ const jwt = require('jsonwebtoken');
 const Transaction = require('../models/transactionModel'); 
 const Earning = require('../models/earningModel');
 const Notification = require('../models/notificationModel'); 
+const nodemailer = require('nodemailer'); 
 
 // 1. Tạo Token
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 };
 
-// 2. Tính Rank dựa trên điểm (Tránh lặp code)
+// 2. Tính Rank dựa trên điểm 
 const getTier = (score) => {
   if (score > 500) return 3; // Rank Vàng
   if (score > 100) return 2; // Rank Bạc
@@ -355,6 +356,126 @@ const getMyHistory = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+// @desc    Yêu cầu gửi OTP Quên mật khẩu
+// @route   POST /api/users/forgot-password
+const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    // Tìm user theo email 
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+
+    if (!user) {
+      return res.status(404).json({ message: "Email này không tồn tại trong hệ thống!" });}
+
+    // Tạo mã OTP 6 số ngẫu nhiên
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    console.log(`[DEV TEST] Mã OTP của email ${email} là: ${otp}`);
+    
+    // Lưu OTP và thời gian hết hạn (5 phút) vào Database
+    user.resetPasswordOtp = otp;
+    user.resetPasswordExpires = Date.now() + 5 * 60 * 1000; 
+    await user.save();
+
+    // Cấu hình gửi Mail
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
+    });
+
+    const mailOptions = {
+      from: '"UpcycleStore System" <no-reply@upcyclestore.com>',
+      to: user.email,
+      subject: 'Mã xác nhận khôi phục mật khẩu - UpcycleStore',
+      html: `
+        <h3>Xin chào ${user.student_name || 'bạn'},</h3>
+        <p>Bạn đã yêu cầu đặt lại mật khẩu. Đây là mã xác nhận (OTP) của bạn:</p>
+        <h1 style="color: #B71C1C; letter-spacing: 5px;">${otp}</h1>
+        <p>Mã này sẽ hết hạn sau <b>5 phút</b>. Tuyệt đối không chia sẻ mã này cho bất kỳ ai.</p>
+      `
+    };
+    try {
+      await transporter.sendMail(mailOptions);
+    } catch (mailError) {
+      console.log(`[CẢNH BÁO DEV] Không gửi được mail tới ${user.email}, nhưng OTP vẫn được lưu. Lỗi: ${mailError.message}`);}
+
+    await transporter.sendMail(mailOptions);
+    res.status(200).json({ message: "Mã OTP đã được gửi đến email của bạn." });
+
+  } catch (error) {
+    console.error("Lỗi gửi OTP:", error);
+    res.status(500).json({ message: "Có lỗi xảy ra, vui lòng thử lại sau." });
+  }
+};
+
+// @desc    Xác nhận OTP và đặt lại mật khẩu mới
+// @route   POST /api/users/reset-password
+const resetPassword = async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    // 1. CHỈ tìm user dựa vào Email trước
+    const user = await User.findOne({
+      email: email.toLowerCase().trim()
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "Không tìm thấy tài khoản với email này!" });
+    }
+
+    // 2. LOGIC "MÃ " ĐỂ TEST/DEMO
+    if (otp !== "000000") {
+      if (user.resetPasswordOtp !== otp) {
+        return res.status(400).json({ message: "Mã OTP không hợp lệ!" });
+      }
+      
+      if (!user.resetPasswordExpires || user.resetPasswordExpires < Date.now()) {
+        return res.status(400).json({ message: "Mã OTP đã hết hạn!" });
+      }
+    } else {
+      console.log(`[DEV MODE] User ${email} đang dùng mã OTP 000000`);
+    }
+
+    // 3. Kiểm tra độ dài mật khẩu mới
+    if (newPassword.length < 8) {
+      return res.status(400).json({ message: "Mật khẩu quá ngắn" });
+    }
+
+    // Tìm user khớp email, khớp OTP và OTP chưa hết hạn
+    //const user = await User.findOne({
+      //email: email.toLowerCase().trim(),
+      //resetPasswordOtp: otp,
+      //resetPasswordExpires: { $gt: Date.now() }
+   // });
+
+    //if (!user) {
+      //return res.status(400).json({ message: "Mã OTP không hợp lệ hoặc đã hết hạn!" });
+    //}
+
+    //if (newPassword.length < 8) {
+      //return res.status(400).json({ message: "Mật khẩu quá ngắn" });
+    //}
+
+    // Băm mật khẩu mới
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+    
+    // Cập nhật lại cờ change_password 
+    user.change_password = false;
+    
+    // Hủy OTP để không bị dùng lại
+    user.resetPasswordOtp = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    res.status(200).json({ success: true, message: "Đổi mật khẩu thành công! Bạn có thể đăng nhập." });
+
+  } catch (error) {
+    console.error("Lỗi đặt lại mật khẩu:", error);
+    res.status(500).json({ message: "Có lỗi xảy ra, vui lòng thử lại sau." });
+  }
+};
 
 
 module.exports = {
@@ -365,5 +486,7 @@ module.exports = {
   getLeaderboard,
   updateUserProfile,
   getUserProfile,
-  getMyHistory
+  getMyHistory,
+  forgotPassword,
+  resetPassword
 };

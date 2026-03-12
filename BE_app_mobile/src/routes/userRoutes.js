@@ -8,7 +8,9 @@ const {
   addPoints, 
   dailyCheckIn,
   getUserProfile,
-  getMyHistory 
+  getMyHistory,
+  forgotPassword,
+  resetPassword 
 } = require('../controllers/userController');
 
 const { protect } = require('../middleware/authMiddleware'); 
@@ -18,7 +20,9 @@ router.get('/leaderboard', getLeaderboard);
 
 // --- CÁC ROUTE BẢO VỆ  ---
 // Đổi mật khẩu
-router.post('/change-password', protect, changePassword); 
+router.post('/change-password', protect, changePassword);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword); 
 
 // Profile (Lấy thông tin & Cập nhật)
 router.route('/profile')

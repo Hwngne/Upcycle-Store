@@ -48,7 +48,7 @@ const userSchema = mongoose.Schema(
     // ===== STUDENT SPECIFIC (Admin dùng tên khác mình chút) =====
     student_code: { type: String, unique: true, sparse: true, trim: true },
     
-    // Admin: student_name | Mình cũ: name
+    // Admin: student_name |
     student_name: { type: String, trim: true },
     
     gender: { type: String, enum: ["M", "F"], default: "M" },
@@ -59,6 +59,8 @@ const userSchema = mongoose.Schema(
     admin_phone: { type: String, unique: true, sparse: true, trim: true },
     refreshToken: { type: String, default: null },
     lastSpinDate: { type: Date },
+    resetPasswordOtp: { type: String, default: null },
+    resetPasswordExpires: { type: Date, default: null },
   },
   {
     timestamps: true,
@@ -67,5 +69,5 @@ const userSchema = mongoose.Schema(
   }
 );
 
-const User = mongoose.model('User', userSchema); // Model tên Account cho khớp
+const User = mongoose.model('User', userSchema); 
 module.exports = User;
