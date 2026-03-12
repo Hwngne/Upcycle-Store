@@ -1,35 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-//import 'components/mobile_layout.dart';
-//import 'pages/auth/login_page.dart';
 import 'pages/auth/splash_page.dart';
 import 'package:bot_toast/bot_toast.dart';
 
 void main() {
-  // Chỉnh màu thanh status bar trong suốt cho đẹp
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.dark,
     ),
   );
-  runApp(const EcoApp());
+  runApp(const UpcycleStoreApp());
 }
 
-class EcoApp extends StatelessWidget {
-  const EcoApp({super.key});
+class UpcycleStoreApp extends StatelessWidget {
+  const UpcycleStoreApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      builder: BotToastInit(), 
+      builder: BotToastInit(),
       navigatorObservers: [BotToastNavigatorObserver()],
       debugShowCheckedModeBanner: false,
-      title: 'Eco App',
+      title: 'UpcycleStore',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        // Cập nhật màu chủ đạo thành màu Đỏ
+        primaryColor: const Color(0xFFB71C1C),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFB71C1C)),
         fontFamily: 'Roboto',
         useMaterial3: true,
+        scaffoldBackgroundColor: Colors.white,
       ),
       home: const SplashPage(),
     );

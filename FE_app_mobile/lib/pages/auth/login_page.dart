@@ -4,6 +4,8 @@ import '../../components/club_layout.dart';
 import '../../services/auth_service.dart';
 import '../../services/user_service.dart';
 import 'change_password_page.dart';
+import 'forgot_password_page.dart';
+import 'package:bot_toast/bot_toast.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -17,39 +19,78 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordController = TextEditingController();
   bool _isObscure = true;
 
+  // --- HÀM THÔNG BÁO ---
+  void _showCustomSnackBar(String message, {bool isSuccess = true}) {
+    BotToast.showCustomNotification(
+      toastBuilder: (cancelFunc) {
+        return SafeArea(
+          child: Card(
+            color: isSuccess ? const Color(0xFF059669) : Colors.red.shade600,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
+            margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            elevation: 6,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                children: [
+                  Icon(
+                    isSuccess
+                        ? Icons.check_circle_rounded
+                        : Icons.error_outline_rounded,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      message,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+      duration: const Duration(seconds: 3),
+      align: const Alignment(0, -0.99),
+      animationDuration: const Duration(milliseconds: 200),
+    );
+  }
+
   void _handleLogin() async {
-    // A. Kiểm tra nhập liệu
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Vui lòng nhập Email và Mật khẩu"),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      _showCustomSnackBar("Vui lòng nhập Email và Mật khẩu", isSuccess: false);
       return;
     }
 
-    // B. Hiện loading
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (c) => const Center(child: CircularProgressIndicator()),
+      builder: (c) => const Center(
+        child: CircularProgressIndicator(color: Color(0xFFB71C1C)),
+      ),
     );
 
-    // C. GỌI API
     final result = await AuthService.login(
       _emailController.text.trim(),
       _passwordController.text,
     );
 
-    // D. Tắt loading
     if (!mounted) return;
-    Navigator.pop(context); 
+    Navigator.pop(context);
 
-    // E. Kiểm tra kết quả
     if (result['success'] == true) {
       final String rawRole = result['role'] ?? "student";
       final String role = rawRole.toLowerCase();
+
       print(
         " DEBUG FINAL CHECK: Name='${UserData.name}', Role='${UserData.role}'",
       );
@@ -57,188 +98,177 @@ class _LoginPageState extends State<LoginPage> {
       bool isFirstLogin = result['isFirstLogin'] ?? false;
 
       if (isFirstLogin) {
-        //  TRƯỜNG HỢP 1: Lần đầu đăng nhập -> Sang trang Đổi mật khẩu
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const ChangePasswordPage()),
         );
       } else {
         if (role == 'club') {
-          print(" Role is CLUB -> Navigate to ClubLayout");
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (_) => const ClubLayout()),
           );
         } else if (role == 'student') {
-          // Chỉ vào đây khi role CHÍNH XÁC là 'student'
-          print(" Role is STUDENT -> Navigate to MobileLayout");
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (_) => const MobileLayout()),
           );
         } else {
-          print(
-            " Role không hợp lệ hoặc chưa được cấp quyền trên Mobile: '$role'",
-          );
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                "Lỗi quyền hạn: Role '$role' không được hỗ trợ trên App.",
-              ),
-              backgroundColor: Colors.redAccent,
-              duration: const Duration(seconds: 3),
-            ),
+          _showCustomSnackBar(
+            "Lỗi quyền hạn: Role '$role' không được hỗ trợ trên App.",
+            isSuccess: false,
           );
         }
       }
     } else {
-      // Đăng nhập thất bại
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result['message'] ?? "Đăng nhập thất bại!"),
-          backgroundColor: Colors.red,
-        ),
+      _showCustomSnackBar(
+        result['message'] ?? "Đăng nhập thất bại!",
+        isSuccess: false,
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5FA),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // 1. HEADER CONG MÀU ĐỎ
-            Stack(
-              alignment: Alignment.bottomCenter,
-              children: [
-                ClipPath(
-                  clipper: BottomCurveClipper(),
-                  child: Container(
-                    height: 280,
-                    width: double.infinity,
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Color(0xFFD32F2F), Color(0xFFB71C1C)],
-                      ),
-                    ),
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Icon(Icons.eco, size: 80, color: Colors.white),
-                          SizedBox(height: 10),
-                          Text(
-                            "ECO LIFE",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 2,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: screenHeight - MediaQuery.of(context).padding.top,
             ),
-
-            const SizedBox(height: 40),
-
-            // 2. FORM ĐĂNG NHẬP
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 30),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "Đăng nhập",
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF2C2C54),
+            child: IntrinsicHeight(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24.0,
+                  vertical: 20.0,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 20),
+                    Center(
+                      child: Image.asset(
+                        'assets/images/login_image.png',
+                        height: 200,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            height: 150,
+                            width: 150,
+                            decoration: BoxDecoration(
+                              color: Colors.red[50],
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.image_not_supported,
+                              size: 50,
+                              color: Color(0xFFB71C1C),
+                            ),
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    "Vui lòng đăng nhập để tiếp tục",
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                  ),
-                  const SizedBox(height: 30),
-
-                  _buildTextField(
-                    controller: _emailController,
-                    icon: Icons.person_outline,
-                    hint: "Email hoặc MSSV",
-                  ),
-                  const SizedBox(height: 20),
-                  _buildTextField(
-                    controller: _passwordController,
-                    icon: Icons.lock_outline,
-                    hint: "Mật khẩu",
-                    isPassword: true,
-                  ),
-
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () {
-                        // chức năng quên mật khẩu sau
-                      },
-                      child: const Text(
-                        "Quên mật khẩu?",
-                        style: TextStyle(
-                          color: Color(0xFFB71C1C),
-                          fontWeight: FontWeight.bold,
+                    const SizedBox(height: 30),
+                    const Text(
+                      "Đăng nhập",
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Chào mừng bạn đến với UpcycleStore!",
+                      style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                    ),
+                    const SizedBox(height: 40),
+                    _buildModernTextField(
+                      controller: _emailController,
+                      icon: Icons.email_outlined,
+                      hint: "Email hoặc MSSV",
+                    ),
+                    const SizedBox(height: 20),
+                    _buildModernTextField(
+                      controller: _passwordController,
+                      icon: Icons.lock_outline,
+                      hint: "Mật khẩu",
+                      isPassword: true,
+                    ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const ForgotPasswordPage(),
+                            ),
+                          );
+                        },
+                        child: const Text(
+                          "Quên mật khẩu?",
+                          style: TextStyle(
+                            color: Color(0xFFB71C1C),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // NÚT ĐĂNG NHẬP
-                  SizedBox(
-                    width: double.infinity,
-                    height: 55,
-                    child: ElevatedButton(
-                      onPressed: _handleLogin,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2C2C54),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
+                    const SizedBox(height: 30),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: ElevatedButton(
+                        onPressed: _handleLogin,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFB71C1C),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
                         ),
-                        elevation: 5,
-                      ),
-                      child: const Text(
-                        "ĐĂNG NHẬP",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                        child: const Text(
+                          "Đăng nhập",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-
-                  const SizedBox(height: 50),
-                ],
+                    const Spacer(),
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 10.0),
+                        child: Text(
+                          "Powered by SPKT • Phiên bản 1.0",
+                          style: TextStyle(
+                            color: Colors.grey[400],
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  // WIDGET TEXT FIELD
-  Widget _buildTextField({
+  Widget _buildModernTextField({
     required TextEditingController controller,
     required IconData icon,
     required String hint,
@@ -246,68 +276,33 @@ class _LoginPageState extends State<LoginPage> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(
-              0.1,
-            ), 
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(16),
       ),
       child: TextField(
         controller: controller,
         obscureText: isPassword ? _isObscure : false,
+        style: const TextStyle(fontSize: 16),
         decoration: InputDecoration(
-          prefixIcon: Icon(icon, color: const Color(0xFF2C2C54)),
+          prefixIcon: Icon(icon, color: Colors.grey[600]),
           hintText: hint,
-          hintStyle: TextStyle(color: Colors.grey[400]),
+          hintStyle: TextStyle(color: Colors.grey[500]),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 20,
-            vertical: 15,
+            vertical: 18,
           ),
           suffixIcon: isPassword
               ? IconButton(
                   icon: Icon(
                     _isObscure ? Icons.visibility_off : Icons.visibility,
-                    color: Colors.grey,
+                    color: Colors.grey[500],
                   ),
-                  onPressed: () {
-                    setState(() {
-                      _isObscure = !_isObscure;
-                    });
-                  },
+                  onPressed: () => setState(() => _isObscure = !_isObscure),
                 )
               : null,
         ),
       ),
     );
   }
-}
-
-// Custom Clipper 
-class BottomCurveClipper extends CustomClipper<Path> {
-  @override
-  Path getClip(Size size) {
-    var path = Path();
-    path.lineTo(0, size.height - 50);
-    var firstControlPoint = Offset(size.width / 2, size.height);
-    var firstEndPoint = Offset(size.width, size.height - 50);
-    path.quadraticBezierTo(
-      firstControlPoint.dx,
-      firstControlPoint.dy,
-      firstEndPoint.dx,
-      firstEndPoint.dy,
-    );
-    path.lineTo(size.width, 0);
-    path.close();
-    return path;
-  }
-
-  @override
-  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
 }

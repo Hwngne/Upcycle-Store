@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import '../../services/user_service.dart';
 import 'login_page.dart';
-import '../../components/mobile_layout.dart'; // Của Sinh viên
-import '../../components/club_layout.dart'; // Của CLB (Mới thêm)
+import '../../components/mobile_layout.dart';
+import '../../components/club_layout.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'onboarding_page.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -21,30 +23,35 @@ class _SplashPageState extends State<SplashPage> {
 
   // Hàm kiểm tra
   void _checkLoginStatus() async {
-    // Chờ 2 giây cho đẹp
     await Future.delayed(const Duration(seconds: 2));
 
-    // Gọi hàm kiểm tra từ AuthService (Code cũ của bạn)
+    final prefs = await SharedPreferences.getInstance();
+    bool hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false;
     bool isLoggedIn = await AuthService.tryAutoLogin();
 
     if (!mounted) return;
 
-    if (isLoggedIn) {
+    if (!hasSeenOnboarding) {
+      // Lần đầu tiên mở app -> Vào Onboarding
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const OnboardingPage()),
+      );
+    } else if (isLoggedIn) {
+      // Đã đăng nhập -> Vào Layout tương ứng
       if (UserData.role == 'club') {
-        // Nếu là CLB -> Vào ClubLayout
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const ClubLayout()),
         );
       } else {
-        // Nếu là Sinh viên (hoặc khác) -> Vào MobileLayout (Giữ nguyên logic cũ)
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const MobileLayout()),
         );
       }
     } else {
-      // Nếu chưa đăng nhập -> Vào trang đăng nhập (Giữ nguyên)
+      // Chưa đăng nhập  -> Vào thẳng LoginPage
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const LoginPage()),
@@ -54,18 +61,47 @@ class _SplashPageState extends State<SplashPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Giữ nguyên giao diện loading cũ của bạn
     return Scaffold(
       backgroundColor: Colors.white,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(Icons.eco, size: 80, color: Colors.green),
-            SizedBox(height: 20),
-            CircularProgressIndicator(),
-            SizedBox(height: 10),
-            Text("Đang tải dữ liệu...", style: TextStyle(color: Colors.grey)),
+          children: [
+            // Icon màu Đỏ chủ đạo, có viền mờ cho xịn
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFFB71C1C).withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.recycling_rounded,
+                size: 80,
+                color: Color(0xFFB71C1C),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Tên App
+            const Text(
+              "UpcycleStore",
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFB71C1C),
+                letterSpacing: 1.5,
+              ),
+            ),
+
+            const SizedBox(height: 40),
+
+            // Loading màu đỏ
+            const CircularProgressIndicator(color: Color(0xFFB71C1C)),
+            const SizedBox(height: 16),
+            const Text(
+              "Đang tải dữ liệu...",
+              style: TextStyle(color: Colors.grey, fontSize: 14),
+            ),
           ],
         ),
       ),

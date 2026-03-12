@@ -121,6 +121,67 @@ class AuthService {
     }
   }
 
+  // . API Gửi OTP Quên mật khẩu
+  static Future<Map<String, dynamic>> forgotPassword(String email) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/forgot-password'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email}),
+      );
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'message': jsonDecode(response.body)['message'],
+        };
+      } else {
+        return {
+          'success': false,
+          'message':
+              jsonDecode(response.body)['message'] ?? "Lỗi không xác định",
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': "Lỗi kết nối máy chủ: $e"};
+    }
+  }
+
+  //  API Đặt lại mật khẩu với OTP
+  static Future<Map<String, dynamic>> resetPassword(
+    String email,
+    String otp,
+    String newPassword,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/reset-password'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email,
+          'otp': otp,
+          'newPassword': newPassword,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'message': jsonDecode(response.body)['message'],
+        };
+      } else {
+        return {
+          'success': false,
+          'message':
+              jsonDecode(response.body)['message'] ??
+              "Mã OTP không đúng hoặc đã hết hạn",
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': "Lỗi kết nối máy chủ: $e"};
+    }
+  }
+
   // --- 3. CỘNG ĐIỂM (Quiz, Đọc báo...) ---
   static Future<bool> addPoints(
     int points, {
