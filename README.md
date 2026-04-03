@@ -62,7 +62,7 @@ Bạn cần tạo một file tên là `.env` (file này đã được tôi cấu
 Mở file `.env` và điền thông tin:
 ```env
 GEMINI_API_KEY=AIzaSy... (Khóa bí mật của Google)
-API_KEY=AI_ONEDELI_001 (Khóa bảo mật cho riêng API của bạn)
+API_KEY=NCKH_PHANMEM(Khóa bảo mật cho riêng API của bạn)
 ```
 
 ---
