@@ -1321,6 +1321,16 @@ class _ForumPageState extends State<ForumPage> {
                                 partnerName: post.authorName,
                                 partnerImage: post.authorAvatar,
                                 isOnline: true,
+                                productInfo: isProduct
+                                    ? {
+                                        'title':
+                                            post.title ??
+                                            post.category ??
+                                            "Sản phẩm",
+                                        'price': post.price,
+                                        'image': post.image,
+                                      }
+                                    : null,
                               ),
                             ),
                           );

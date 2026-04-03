@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../services/ai_service.dart';
@@ -13,8 +14,14 @@ class CameraAIPage extends StatefulWidget {
 
 class _CameraAIPageState extends State<CameraAIPage>
     with SingleTickerProviderStateMixin {
+  // --- CÁC BIẾN CHO CAMERA LIVE VIEW ---
+  CameraController? _cameraController;
+  Future<void>? _initializeControllerFuture;
+  bool _isCameraReady = false;
+
   XFile? _imageFile;
   bool _isProcessing = false;
+  bool _isTakingPicture = false;
   Map<String, dynamic>? _resultData;
 
   late AnimationController _scanController;
@@ -23,33 +30,92 @@ class _CameraAIPageState extends State<CameraAIPage>
   @override
   void initState() {
     super.initState();
+    // 1. KHỞI TẠO CAMERA NGAY KHI VÀO TRANG
+    _initializeCamera();
+
     _scanController = AnimationController(
       duration: const Duration(seconds: 2),
       vsync: this,
     )..repeat(reverse: true);
   }
 
+  // --- HÀM KHỞI TẠO CAMERA PHẦN CỨNG ---
+  Future<void> _initializeCamera() async {
+    try {
+      // 1. Lấy danh sách các camera khả dụng (trước, sau)
+      final cameras = await availableCameras();
+      if (cameras.isEmpty) {
+        print(" Không tìm thấy camera nào trên thiết bị.");
+        return;
+      }
+
+      // 2. Khởi tạo controller với camera sau (cameras.first)
+      _cameraController = CameraController(
+        cameras.first, 
+        ResolutionPreset.medium, 
+        enableAudio: false, 
+      );
+
+      // 3. Bắt đầu khởi tạo controller
+      _initializeControllerFuture = _cameraController!.initialize();
+
+      // 4. Chờ khởi tạo xong và cập nhật giao diện
+      await _initializeControllerFuture;
+      if (mounted) {
+        setState(() {
+          _isCameraReady = true;
+        });
+      }
+    } catch (e) {
+      print(" Lỗi khởi tạo hardware camera: $e");
+    }
+  }
+
   @override
   void dispose() {
+    _cameraController?.dispose();
     _scanController.dispose();
     super.dispose();
   }
 
-  Future<void> _takePicture(ImageSource source) async {
+  // --- HÀM CHỤP ẢNH  ---
+  Future<void> _handleTakePicture(ImageSource source) async {
+    if (_isTakingPicture || _isProcessing) return; 
+
+    XFile? pickedFile;
+
     try {
-      final XFile? pickedFile = await _picker.pickImage(source: source);
+      if (source == ImageSource.camera) {
+        // --- CHỤP TỪ LIVE VIEW ---
+        if (!_isCameraReady || _cameraController == null) return;
+        setState(() => _isTakingPicture = true);
+
+        // Chụp ảnh thực tế
+        pickedFile = await _cameraController!.takePicture();
+      } else {
+        // --- CHỌN TỪ THƯ VIỆN (Dùng ImagePicker cũ) ---
+        setState(() => _isTakingPicture = true);
+        pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+      }
+
       if (pickedFile != null) {
         setState(() {
           _imageFile = pickedFile;
           _resultData = null;
         });
+        // Sau khi chụp xong thì gửi ảnh sang AI
         _analyzeWaste();
       }
     } catch (e) {
-      print("Lỗi mở camera: $e");
+      print(" Lỗi khi lấy ảnh: $e");
+    } finally {
+      if (mounted) {
+        setState(() => _isTakingPicture = false);
+      }
     }
   }
 
+  // --- HÀM GỬI ẢNH SANG AI SERVICE ---
   Future<void> _analyzeWaste() async {
     setState(() => _isProcessing = true);
     final result = await AiService.scanWaste(_imageFile!);
@@ -101,25 +167,33 @@ class _CameraAIPageState extends State<CameraAIPage>
       resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
-          // 1. LỚP NỀN
+          // ==========================================
+          // 1. LỚP NỀN (HIỂN THỊ CAMERA LIVE HOẶC ẢNH ĐÃ CHỤP)
+          // ==========================================
           Positioned.fill(
             child: _imageFile != null
-                ? (kIsWeb
+                ? // A. Đã chụp xong: Hiển thị ảnh tĩnh
+                  (kIsWeb
                       ? Image.network(_imageFile!.path, fit: BoxFit.cover)
                       : Image.file(File(_imageFile!.path), fit: BoxFit.cover))
-                : Container(
+                : // B. Chưa chụp: Hiển thị Camera Preview trực tiếp
+                  (_isCameraReady && _cameraController != null)
+                ? AspectRatio(
+                    aspectRatio: _cameraController!.value.aspectRatio,
+                    child: CameraPreview(_cameraController!),
+                  )
+                : // C. Đang khởi tạo: Hiển thị loading
+                  Container(
                     color: const Color(0xFF1E1E1E),
                     child: const Center(
-                      child: Text(
-                        "Giao diện Camera thực tế\nsẽ được hiển thị ở đây",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white38),
+                      child: CircularProgressIndicator(
+                        color: Colors.greenAccent,
                       ),
                     ),
                   ),
           ),
 
-          // 2. KHUNG QUÉT
+          // 2. KHUNG QUÉT (Chỉ hiện khi chưa chụp ảnh)
           if (_imageFile == null && !_isProcessing)
             Positioned.fill(child: _buildScannerOverlay()),
 
@@ -168,13 +242,15 @@ class _CameraAIPageState extends State<CameraAIPage>
                     color: Colors.white,
                     size: 28,
                   ),
-                  onPressed: () {},
+                  onPressed: () {
+                    // Bạn có thể thêm logic bật flash ở đây bằng _cameraController
+                  },
                 ),
               ],
             ),
           ),
 
-          // 4. MÀN HÌNH ĐANG XỬ LÝ
+          // 4. MÀN HÌNH ĐANG XỬ LÝ (Khi chụp xong và đang đợi AI mock)
           if (_isProcessing)
             Container(
               color: Colors.black.withOpacity(0.7),
@@ -215,8 +291,10 @@ class _CameraAIPageState extends State<CameraAIPage>
               ),
             ),
 
-          // 5. NÚT CHỤP ẢNH BÊN DƯỚI
-          if (_imageFile == null && !_isProcessing)
+          // ==========================================
+          // 5. THANH ĐIỀU KHIỂN CHỤP ẢNH BÊN DƯỚI
+          // ==========================================
+          if (_imageFile == null && !_isProcessing && _isCameraReady)
             Positioned(
               bottom: 40,
               left: 0,
@@ -224,16 +302,19 @@ class _CameraAIPageState extends State<CameraAIPage>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
+                  // Nút mở Gallery
                   IconButton(
                     icon: const Icon(
                       Icons.photo_library,
                       color: Colors.white,
                       size: 32,
                     ),
-                    onPressed: () => _takePicture(ImageSource.gallery),
+                    onPressed: () => _handleTakePicture(ImageSource.gallery),
                   ),
+
+                  // NÚT CHỤP ẢNH (Bấm vào chụp cái live view)
                   GestureDetector(
-                    onTap: () => _takePicture(ImageSource.camera),
+                    onTap: () => _handleTakePicture(ImageSource.camera),
                     child: Container(
                       width: 80,
                       height: 80,
@@ -250,10 +331,18 @@ class _CameraAIPageState extends State<CameraAIPage>
                             color: Colors.white,
                             shape: BoxShape.circle,
                           ),
+                          // Hiển thị loading nhỏ khi đang chụp
+                          child: _isTakingPicture
+                              ? const CircularProgressIndicator(
+                                  color: Colors.green,
+                                )
+                              : null,
                         ),
                       ),
                     ),
                   ),
+
+                  // Nút trợ giúp
                   IconButton(
                     icon: const Icon(
                       Icons.help_outline,
@@ -270,11 +359,10 @@ class _CameraAIPageState extends State<CameraAIPage>
     );
   }
 
-  // --- KHUNG QUÉT TIA LASER HIỆN ĐẠI ---
+  // --- CÁC WIDGET PHỤ (Giữ nguyên giao diện đẹp của bạn) ---
   Widget _buildScannerOverlay() {
     const double scanBoxSize = 280.0;
     const double laserHeight = 4.0;
-
     return Center(
       child: SizedBox(
         width: scanBoxSize,
@@ -282,7 +370,6 @@ class _CameraAIPageState extends State<CameraAIPage>
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            // Các góc vuông
             Stack(
               children: [
                 _buildCorner(Alignment.topLeft),
@@ -291,8 +378,6 @@ class _CameraAIPageState extends State<CameraAIPage>
                 _buildCorner(Alignment.bottomRight),
               ],
             ),
-
-            // Tia laser
             AnimatedBuilder(
               animation: _scanController,
               builder: (context, child) {
@@ -316,8 +401,6 @@ class _CameraAIPageState extends State<CameraAIPage>
                 );
               },
             ),
-
-            // Dòng chữ hướng dẫn
             Positioned(
               bottom: -50,
               left: 0,
@@ -346,6 +429,10 @@ class _CameraAIPageState extends State<CameraAIPage>
   }
 
   Widget _buildCorner(Alignment alignment) {
+    BorderSide cornerSide = const BorderSide(
+      color: Colors.greenAccent,
+      width: 4,
+    );
     return Align(
       alignment: alignment,
       child: Container(
@@ -356,22 +443,22 @@ class _CameraAIPageState extends State<CameraAIPage>
             top:
                 (alignment == Alignment.topLeft ||
                     alignment == Alignment.topRight)
-                ? const BorderSide(color: Colors.greenAccent, width: 4)
+                ? cornerSide
                 : BorderSide.none,
             bottom:
                 (alignment == Alignment.bottomLeft ||
                     alignment == Alignment.bottomRight)
-                ? const BorderSide(color: Colors.greenAccent, width: 4)
+                ? cornerSide
                 : BorderSide.none,
             left:
                 (alignment == Alignment.topLeft ||
                     alignment == Alignment.bottomLeft)
-                ? const BorderSide(color: Colors.greenAccent, width: 4)
+                ? cornerSide
                 : BorderSide.none,
             right:
                 (alignment == Alignment.topRight ||
                     alignment == Alignment.bottomRight)
-                ? const BorderSide(color: Colors.greenAccent, width: 4)
+                ? cornerSide
                 : BorderSide.none,
           ),
         ),
@@ -482,8 +569,8 @@ class _CameraAIPageState extends State<CameraAIPage>
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () {
-                    Navigator.pop(context);
-                    _resetScanner();
+                    Navigator.pop(context); // Đóng ResultPanel
+                    _resetScanner(); // Chụp lại ảnh mới
                   },
                   icon: const Icon(
                     Icons.refresh,
@@ -510,22 +597,12 @@ class _CameraAIPageState extends State<CameraAIPage>
                 flex: 2,
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    // 1. Lấy data từ kết quả AI
-                    String item = _resultData!['itemName'];
-                    String cat = _resultData!['category'];
                     int pts = _resultData!['points'];
-
-                    // 2. GỌI API MAIN BACKEND ĐỂ CỘNG TIỀN
-                    // bool success = await EarnService.claimAiPoints(item, cat, pts);
-
-                    // Giả lập thành công cho hiện tại
+                    // Giả lập cộng điểm thành công
                     bool success = true;
-
                     if (success) {
-                      Navigator.pop(context);
-                      Navigator.pop(context);
-
-                      // Báo thành công
+                      Navigator.pop(context); // Đóng panel
+                      Navigator.pop(context); // Thoát trang camera
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text("Tuyệt vời! Bạn nhận được +$pts điểm"),

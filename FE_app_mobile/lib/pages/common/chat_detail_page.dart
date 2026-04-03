@@ -17,6 +17,7 @@ class ChatDetailPage extends StatefulWidget {
   final String partnerName;
   final String partnerImage;
   final bool isOnline;
+  final Map<String, dynamic>? productInfo;
 
   const ChatDetailPage({
     super.key,
@@ -24,6 +25,7 @@ class ChatDetailPage extends StatefulWidget {
     required this.partnerName,
     required this.partnerImage,
     this.isOnline = false,
+    this.productInfo,
   });
 
   @override
@@ -55,11 +57,15 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
 
   final String baseUrl = ApiConstants.baseUrl;
   final String serverUrl = ApiConstants.serverUrl;
+  bool _showProductBanner = false;
 
   @override
   void initState() {
     super.initState();
     isPartnerOnline = widget.isOnline;
+    if (widget.productInfo != null) {
+      _showProductBanner = true;
+    }
     _initChat();
   }
 
@@ -374,9 +380,49 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     );
   }
 
+  // Hàm format tiền tệ (Chuyển ép về int để mất số .0)
+  String _formatCurrency(dynamic amount) {
+    if (amount == null) return "Miễn phí";
+    // Ép kiểu an toàn về số nguyên
+    int value = amount is double
+        ? amount.toInt()
+        : int.tryParse(amount.toString()) ?? 0;
+
+    return value.toString().replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (Match m) => '${m[1]}.',
+        ) +
+        "đ";
+  }
+
   void _handleSendMessage() {
-    final text = _msgController.text.trim();
-    if (text.isEmpty) return;
+    String text = _msgController.text.trim();
+
+    if (_showProductBanner && widget.productInfo != null) {
+      String productName = widget.productInfo!['title'];
+      String priceStr = _formatCurrency(widget.productInfo!['price']);
+      String? imageUrl = widget.productInfo!['image'];
+
+      // 1. GỬI TIN NHẮN HÌNH ẢNH TRƯỚC (Nếu có ảnh)
+      if (imageUrl != null && imageUrl.isNotEmpty) {
+        _sendSocketMessage(imageUrl, type: 'image');
+      }
+
+      // 2. TEXT CHỨA THÔNG TIN
+      String prefix =
+          "Tôi muốn trao đổi thêm về sản phẩm:\n- $productName\n- Giá: $priceStr";
+
+      // Nối với lời nhắn của người dùng (nếu có gõ thêm)
+      text = text.isEmpty ? prefix : "$prefix\n\n💬 $text";
+
+      setState(() {
+        _showProductBanner = false;
+      });
+    }
+
+    if (text.isEmpty) return; // Chặn nếu rỗng
+
+    // Gửi tin nhắn text
     if (_isEditing && _editingMsgId != null) {
       socket.emit('edit_message', {
         'messageId': _editingMsgId,
@@ -386,6 +432,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
       _cancelEditing();
       return;
     }
+
     _sendSocketMessage(text, type: 'text');
     _msgController.clear();
   }
@@ -523,91 +570,240 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
           ],
         ),
       ),
-      body: Column(
+      body: Stack(
         children: [
-          if (_isLoadingMore)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8.0),
-              child: SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.grey,
+          Positioned.fill(child: _buildTelegramStyleBackground()),
+          Column(
+            children: [
+              if (_isLoadingMore)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8.0),
+                  child: SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ),
+              Expanded(
+                child: _isLoading
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFFB71C1C),
+                        ),
+                      )
+                    : messages.isEmpty
+                    ? const Center(
+                        child: Text(
+                          "Hãy bắt đầu trò chuyện!",
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: _scrollController,
+                        itemCount: messages.length,
+                        reverse: true,
+                        padding: const EdgeInsets.all(10),
+                        itemBuilder: (context, index) {
+                          final msg = messages[index];
+                          bool showDate = false;
+                          if (index == messages.length - 1) {
+                            showDate = true;
+                          } else {
+                            DateTime currDate = DateTime.parse(
+                              msg['createdAt'],
+                            ).toLocal();
+                            DateTime prevDate = DateTime.parse(
+                              messages[index + 1]['createdAt'],
+                            ).toLocal();
+                            if (currDate.day != prevDate.day ||
+                                currDate.month != prevDate.month ||
+                                currDate.year != prevDate.year) {
+                              showDate = true;
+                            }
+                          }
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              if (showDate)
+                                _buildDateSeparator(msg['createdAt']),
+                              _buildMessageItem(msg),
+                            ],
+                          );
+                        },
+                      ),
+              ),
+
+              if (_isPartnerTyping)
+                Padding(
+                  padding: const EdgeInsets.only(left: 16, bottom: 5),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 8,
+                        backgroundImage: NetworkImage(widget.partnerImage),
+                      ),
+                      const SizedBox(width: 5),
+                      const Text(
+                        "Đang soạn tin...",
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (_showProductBanner && widget.productInfo != null)
+                _buildProductBanner(),
+
+              _buildInputArea(),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Widget hiển thị banner sản phẩm
+  Widget _buildProductBanner() {
+    final info = widget.productInfo!;
+    String priceStr = _formatCurrency(info['price']);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF009688).withOpacity(0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 5,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          if (info['image'] != null)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.network(
+                info['image'],
+                width: 50,
+                height: 50,
+                fit: BoxFit.cover,
+                errorBuilder: (c, e, s) => Container(
+                  width: 50,
+                  height: 50,
+                  color: Colors.grey[200],
+                  child: const Icon(
+                    Icons.image_not_supported,
+                    color: Colors.grey,
+                  ),
                 ),
               ),
-            ),
-          Expanded(
-            child: _isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(color: Color(0xFFB71C1C)),
-                  )
-                : messages.isEmpty
-                ? const Center(
-                    child: Text(
-                      "Hãy bắt đầu trò chuyện!",
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  )
-                : ListView.builder(
-                    controller: _scrollController,
-                    itemCount: messages.length,
-                    reverse: true,
-                    padding: const EdgeInsets.all(10),
-                    itemBuilder: (context, index) {
-                      final msg = messages[index];
-                      bool showDate = false;
-                      if (index == messages.length - 1) {
-                        showDate = true;
-                      } else {
-                        DateTime currDate = DateTime.parse(
-                          msg['createdAt'],
-                        ).toLocal();
-                        DateTime prevDate = DateTime.parse(
-                          messages[index + 1]['createdAt'],
-                        ).toLocal();
-                        if (currDate.day != prevDate.day ||
-                            currDate.month != prevDate.month ||
-                            currDate.year != prevDate.year) {
-                          showDate = true;
-                        }
-                      }
-
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (showDate) _buildDateSeparator(msg['createdAt']),
-                          _buildMessageItem(msg),
-                        ],
-                      );
-                    },
-                  ),
-          ),
-
-          if (_isPartnerTyping)
-            Padding(
-              padding: const EdgeInsets.only(left: 16, bottom: 5),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 8,
-                    backgroundImage: NetworkImage(widget.partnerImage),
-                  ),
-                  const SizedBox(width: 5),
-                  const Text(
-                    "Đang soạn tin...",
-                    style: TextStyle(
-                      color: Colors.grey,
-                      fontSize: 12,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ],
+            )
+          else
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(8),
               ),
+              child: const Icon(Icons.shopping_bag, color: Colors.grey),
             ),
-
-          _buildInputArea(),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Bạn đang hỏi mua:",
+                  style: TextStyle(fontSize: 11, color: Colors.grey),
+                ),
+                Text(
+                  info['title'],
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Color(0xFF1A237E),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  priceStr,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Colors.red,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, size: 20, color: Colors.grey),
+            onPressed: () => setState(
+              () => _showProductBanner = false,
+            ), // Cho phép tắt nếu ko muốn mua nữa
+          ),
         ],
+      ),
+    );
+  }
+
+  // --- WIDGET: BACKGROUND TELEGRAM STYLE (ECO x VLU) ---
+  Widget _buildTelegramStyleBackground() {
+    final List<IconData> doodleIcons = [
+      Icons.eco_outlined, // Lá cây 
+      Icons.menu_book_rounded, // Sách vở 
+      Icons.recycling_rounded, // Tái chế 
+      Icons.school_outlined, // Mũ cử nhân 
+      Icons.water_drop_outlined, // Giọt nước 
+      Icons.local_florist_outlined, // Hoa/Cây cỏ 
+    ];
+
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFFFF0F5),
+            Color(0xFFE8F5E9), 
+          ],
+        ),
+      ),
+      child: Opacity(
+        opacity: 0.06,
+        child: GridView.builder(
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 7,
+            childAspectRatio: 1,
+          ),
+          itemCount: 100, 
+          itemBuilder: (context, index) {
+            double angle = (index % 3 == 0)
+                ? 0.3
+                : ((index % 2 == 0) ? -0.2 : 0.1);
+            IconData icon = doodleIcons[index % doodleIcons.length];
+
+            return Transform.rotate(
+              angle: angle,
+              child: Center(child: Icon(icon, size: 28, color: Colors.black87)),
+            );
+          },
+        ),
       ),
     );
   }
@@ -650,7 +846,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     );
   }
 
-  // Tách riêng hàm Build Item để code gọn hơn
+  // Tách riêng hàm Build Item 
   Widget _buildMessageItem(dynamic msg) {
     dynamic senderData = msg['sender'] ?? msg['senderId'];
     String senderId = (senderData is Map)

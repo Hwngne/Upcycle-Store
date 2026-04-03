@@ -1,5 +1,5 @@
 import cron from "node-cron";
-import EventRequest from "../models/EventRequest.js";
+import EventRequest from "../models/web/EventRequest.js";
 
 cron.schedule(
   "0 0 * * *",

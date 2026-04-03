@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-// Để lấy thông tin User hiện tại
 import '../../services/auth_service.dart';
 import '../../services/user_service.dart';
 
@@ -74,7 +73,7 @@ class _RankPageState extends State<RankPage> {
     _loadData();
   }
 
-  // --- HÀM LOAD DỮ LIỆU (CÓ FIX LỖI HIỂN THỊ 0 ĐIỂM) ---
+  // --- HÀM LOAD DỮ LIỆU  ---
   Future<void> _loadData() async {
     List<dynamic> serverData = await AuthService.fetchLeaderboard();
     List<Map<String, dynamic>> combinedList = [];
@@ -255,7 +254,7 @@ class _RankPageState extends State<RankPage> {
             ],
           ),
 
-          // 3. THANH HẠNG CỦA TÔI (ĐÃ SỬA GIAO DIỆN)
+          // 3. THANH HẠNG
           Positioned(
             bottom: 20,
             left: 20,
@@ -276,15 +275,15 @@ class _RankPageState extends State<RankPage> {
               child: Row(
                 children: [
                   const Text(
-                    "Hạng ", // Giữ chữ Hạng ở label nếu muốn, hoặc bỏ tùy ý
+                    "Hạng ",
                     style: TextStyle(color: Colors.white, fontSize: 16),
                   ),
                   Text(
-                    "${UserData.rank}", // --- FIX LỖI 2: Chỉ hiện số (VD: 3) ---
+                    "${UserData.rank}",
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
-                      fontSize: 18, // Cho số to lên một chút
+                      fontSize: 18,
                     ),
                   ),
                   const Spacer(),
@@ -309,7 +308,7 @@ class _RankPageState extends State<RankPage> {
     );
   }
 
-  // --- WIDGET PODIUM (GIỮ NGUYÊN) ---
+  // --- WIDGET PODIUM  ---
   Widget _buildPodiumItem(
     Map<String, dynamic> user,
     int rank,
@@ -361,14 +360,17 @@ class _RankPageState extends State<RankPage> {
                   ),
                 ),
                 const SizedBox(height: 5),
-                Text(
-                  user['name'],
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6.0), 
+                  child: Text(
+                    user['name'],
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
                 Text(
@@ -387,7 +389,7 @@ class _RankPageState extends State<RankPage> {
     );
   }
 
-  // --- WIDGET LIST ITEM (GIỮ NGUYÊN) ---
+  // --- WIDGET LIST ITEM  ---
   Widget _buildRankItem(Map<String, dynamic> user) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -418,6 +420,8 @@ class _RankPageState extends State<RankPage> {
           Expanded(
             child: Text(
               user['name'],
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 15,

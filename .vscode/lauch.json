@@ -1,0 +1,19 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": " Chạy App Flutter",
+            "request": "launch",
+            "type": "dart",
+            "program": "FE_app_mobile/lib/main.dart",
+            "cwd": "FE_app_mobile"
+        },
+        {
+            "name": " Chạy Backend Node.js",
+            "request": "launch",
+            "type": "node",
+            "program": "BE_app_mobile/server.js", 
+            "cwd": "BE_app_mobile"
+        }
+    ]
+}

@@ -1,4 +1,4 @@
-import Account from "../models/Account.js";
+import Account from "../models/web/Account.js";
 
 const EXCLUDE_PATHS = ["/api/auth/change-password", "/api/auth/login"];
 

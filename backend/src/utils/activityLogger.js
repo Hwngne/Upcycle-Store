@@ -1,4 +1,4 @@
-import ActivityHistory from "../models/ActivityHistory.js";
+import ActivityHistory from "../models/web/ActivityHistory.js";
 
 export const logActivity = async ({
   req,
