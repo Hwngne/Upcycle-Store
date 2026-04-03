@@ -1,10 +1,10 @@
-# 🗑️ Hướng Dẫn Cài Đặt API Phân Loại Rác Thải (Waste Classification API)
+# Hướng Dẫn Cài Đặt API Phân Loại Rác Thải (Waste Classification API)
 
 Tài liệu này hướng dẫn chi tiết từng bước để bạn có thể cài đặt và chạy hệ thống phân loại rác thải bằng AI (Gemini) trên máy tính cá nhân hoặc máy chủ (Server), ngay cả khi bạn không rành về kỹ thuật.
 
 ---
 
-## 📋 Mục lục
+## Mục lục
 1. [Yêu cầu hệ thống](#1-yêu-cầu-hệ-thống)
 2. [Cài đặt môi trường](#2-cài-đặt-môi-trường)
 3. [Cấu hình dự án](#3-cấu-hình-dự-án)
@@ -89,7 +89,7 @@ python main.py
 
 ### Cách 1: Sử dụng tài liệu trực quan (Swagger UI)
 Sau khi chạy app, hãy mở trình duyệt và truy cập:
-👉 `http://localhost:8000/docs`
+ `http://localhost:8000/docs`
 
 1. Nhấn vào nút **Authorize** (ổ khóa) góc trên bên phải.
 2. Nhập `NCKH_PHANMEM` vào ô giá trị của `X-API-Key`.
@@ -155,10 +155,10 @@ curl -X 'POST' \
 
 ---
 
-## 🛠️ Khắc phục lỗi thường gặp
+##  Khắc phục lỗi thường gặp
 - **Lỗi 403**: Bạn chưa nhập hoặc nhập sai `X-API-Key` trong header.
 - **Lỗi 500**: Có thể do ảnh không hợp lệ hoặc Google Gemini API gặp vấn đề.
 - **Lỗi thiếu thư viện**: Chạy lại lệnh `pip install -r requirements.txt`.
 
 ---
-*Chúc bạn triển khai thành công!* 🚀
+*Chúc bạn triển khai thành công!* 
