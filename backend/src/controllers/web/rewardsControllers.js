@@ -1,5 +1,5 @@
 // src/controllers/rewardsControllers.js
-import Gift from "../../models/web/gift.js";
+import Gift from "../../models/web/Gift.js";
 import Reward from "../../models/web/Reward.js";
 import Account from "../../models/web/Account.js";
 import mongoose from "mongoose";
