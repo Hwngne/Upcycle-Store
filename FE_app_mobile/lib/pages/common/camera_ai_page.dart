@@ -18,6 +18,7 @@ class _CameraAIPageState extends State<CameraAIPage>
   CameraController? _cameraController;
   Future<void>? _initializeControllerFuture;
   bool _isCameraReady = false;
+  bool _isFlashOn = false;
 
   XFile? _imageFile;
   bool _isProcessing = false;
@@ -51,9 +52,9 @@ class _CameraAIPageState extends State<CameraAIPage>
 
       // 2. Khởi tạo controller với camera sau (cameras.first)
       _cameraController = CameraController(
-        cameras.first, 
-        ResolutionPreset.medium, 
-        enableAudio: false, 
+        cameras.first,
+        ResolutionPreset.medium,
+        enableAudio: false,
       );
 
       // 3. Bắt đầu khởi tạo controller
@@ -80,7 +81,7 @@ class _CameraAIPageState extends State<CameraAIPage>
 
   // --- HÀM CHỤP ẢNH  ---
   Future<void> _handleTakePicture(ImageSource source) async {
-    if (_isTakingPicture || _isProcessing) return; 
+    if (_isTakingPicture || _isProcessing) return;
 
     XFile? pickedFile;
 
@@ -237,13 +238,38 @@ class _CameraAIPageState extends State<CameraAIPage>
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(
-                    Icons.flash_off,
-                    color: Colors.white,
+                  icon: Icon(
+                    _isFlashOn ? Icons.flash_on : Icons.flash_off,
+                    color: _isFlashOn ? Colors.yellowAccent : Colors.white,
                     size: 28,
                   ),
-                  onPressed: () {
-                    // Bạn có thể thêm logic bật flash ở đây bằng _cameraController
+                  onPressed: () async {
+                    // 👉 BẮT BUỘC PHẢI CÓ 'async'
+                    if (_cameraController != null && _isCameraReady) {
+                      try {
+                        // 1. Xác định chế độ muốn bật
+                        FlashMode newMode = _isFlashOn
+                            ? FlashMode.off
+                            : FlashMode.torch;
+
+                        await _cameraController!.setFlashMode(newMode);
+
+                        setState(() {
+                          _isFlashOn = !_isFlashOn;
+                        });
+                      } catch (e) {
+                        print(" Lỗi phần cứng Flash: $e");
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              "Thiết bị này không hỗ trợ đèn Flash!",
+                            ),
+                            backgroundColor: Colors.red,
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    }
                   },
                 ),
               ],

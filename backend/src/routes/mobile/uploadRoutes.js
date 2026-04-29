@@ -1,30 +1,24 @@
 import path from 'path';
 import express from 'express';
 import multer from 'multer';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
+import { cloudinary } from '../../config/cloudinary.js'; 
 
 const router = express.Router();
 
-// 1. Cấu hình nơi lưu trữ
-const storage = multer.diskStorage({
-  destination(req, file, cb) {
-    cb(null, 'uploads/'); 
-  },
-  filename(req, file, cb) {
-    cb(null, `${file.fieldname}-${Date.now()}${path.extname(file.originalname)}`);
+// 1. Cấu hình nơi lưu trữ 
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'vlu_eco_mobile_uploads', 
   },
 });
 
-// 2. Bộ lọc file (ĐÃ SỬA ĐỂ DỄ TÍNH HƠN)
+// 2. Bộ lọc file 
 function checkFileType(file, cb) {
-  // console.log("📥 Đang kiểm tra file:", file.originalname);
-  // console.log("🔖 Mimetype nhận được:", file.mimetype);
-
   const filetypes = /jpg|jpeg|png|gif|webp|pdf|doc|docx|xls|xlsx|ppt|pptx|txt|zip|rar/;
   
-  // 1. Kiểm tra đuôi file (Quan trọng nhất)
   const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-  
-  // 2. Kiểm tra Mimetype (Cho phép thêm 'application/octet-stream' để fix lỗi Flutter)
   const mimetype = filetypes.test(file.mimetype) || file.mimetype === 'application/octet-stream';
 
   if (extname) { 
@@ -36,18 +30,18 @@ function checkFileType(file, cb) {
 }
 
 const upload = multer({
-  storage,
+  storage: storage,
   fileFilter: function (req, file, cb) {
     checkFileType(file, cb);
   },
 });
 
-// 3. API Upload
+// 3. API Upload 
 router.post('/', upload.single('image'), (req, res) => {
   if (req.file) {
-    console.log(" Upload thành công:", req.file.path);
-    // Trả về đường dẫn chuẩn (thay dấu \ thành / cho Windows)
-    res.send(`/${req.file.path.replace(/\\/g, '/')}`);
+    console.log(" Upload Cloudinary thành công:", req.file.path);
+    // Trả thẳng link Cloudinary về cho App
+    res.send(req.file.path);
   } else {
     res.status(400).send('Không có file nào được upload');
   }

@@ -102,13 +102,13 @@ export const markAsRead = async (req, res) => {
   }
 };
 
-// Hàm upload ảnh tin nhắn
+// Hàm upload ảnh tin nhắn 
 export const uploadMessageImage = (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: 'Chưa chọn file' });
     }
-    const imageUrl = `/uploads/chat/${req.file.filename}`;
+    const imageUrl = req.file.path; 
     res.status(200).json({ url: imageUrl });
   } catch (error) {
     res.status(500).json({ message: error.message });

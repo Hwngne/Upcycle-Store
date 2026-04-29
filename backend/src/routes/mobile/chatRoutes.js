@@ -1,24 +1,20 @@
 import express from 'express';
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
+import { cloudinary } from '../../config/cloudinary.js'; 
+
 import { getMessages, getConversations, markAsRead, uploadMessageImage } from '../../controllers/mobile/chatController.js'; 
 import { protect } from '../../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
 // --- CẤU HÌNH MULTER ---
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = 'uploads/chat/';
-    if (!fs.existsSync(dir)){
-        fs.mkdirSync(dir, { recursive: true });
-    }
-    cb(null, dir);
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'vlu_eco_chat_images', // Phân loại thư mục trên mây cho dễ quản lý
+    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
   },
-  filename: (req, file, cb) => {
-    cb(null, 'chat_' + Date.now() + path.extname(file.originalname));
-  }
 });
 
 const upload = multer({ 
@@ -26,7 +22,7 @@ const upload = multer({
     limits: { fileSize: 5 * 1024 * 1024 } 
 });
 
-// --- ROUTES ---
+// --- ROUTES  ---
 router.post('/upload-image', protect, upload.single('image'), uploadMessageImage);
 
 router.get('/conversations/:userId', protect, getConversations);

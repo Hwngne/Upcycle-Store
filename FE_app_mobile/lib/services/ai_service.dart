@@ -1,16 +1,15 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:dio/dio.dart';
+import 'package:http_parser/http_parser.dart';
 
 class AiService {
-  // CÔNG TẮC: Chuyển thành 'true' khi  làm xong Server
-  static const bool useRealApi = false;
+  static const bool useRealApi = true;
+  static const String apiUrl = "http://192.168.2.14:8000/classify";
+  static const String apiKey = "NCKH_PHANMEM";
 
-  //  Nơi dán URL API sau này
-  static const String apiUrl = "https://your-ai-server.com/api/v1/scan";
+  static final Dio _dio = Dio();
 
-  // --- HÀM GỌI CHÍNH TỪ GIAO DIỆN ---
   static Future<Map<String, dynamic>?> scanWaste(XFile imageFile) async {
     if (useRealApi) {
       return await _callRealApi(imageFile);
@@ -19,52 +18,78 @@ class AiService {
     }
   }
 
-  // --- 1. HÀM GỌI API THẬT  ---
   static Future<Map<String, dynamic>?> _callRealApi(XFile imageFile) async {
     try {
-      var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
+      print(" Đang đọc dữ liệu thô (bytes) từ ảnh...");
 
-      if (kIsWeb) {
-        final bytes = await imageFile.readAsBytes();
-        request.files.add(
-          http.MultipartFile.fromBytes(
-            'image',
-            bytes,
-            filename: imageFile.name,
-          ),
-        );
-      } else {
-        request.files.add(
-          await http.MultipartFile.fromPath('image', imageFile.path),
-        );
-      }
+      // 1. XAY NHUYỄN ẢNH THÀNH BYTES (Bỏ qua đường dẫn file của Android)
+      final List<int> imageBytes = await imageFile.readAsBytes();
 
-      // Gửi Request lên Server
-      var streamedResponse = await request.send();
-      var response = await http.Response.fromStream(streamedResponse);
+      // 2. TẠO FILE MỚI HOÀN TOÀN TỪ BYTES
+      FormData formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(
+          imageBytes,
+          filename: 'perfect_image.jpg',
+          contentType: MediaType('image', 'jpeg'),
+        ),
+      });
 
-      // Xử lý kết quả trả về
+      print(" Đang gửi lên Server AI...");
+
+      // 3. THỰC HIỆN GỌI API
+      Response response = await _dio.post(
+        apiUrl,
+        data: formData,
+        options: Options(
+          headers: {'X-API-Key': apiKey},
+          validateStatus: (status) => true,
+        ),
+      );
+
+      // 4. XỬ LÝ KẾT QUẢ TRẢ VỀ
+      print(" Server phản hồi: Code ${response.statusCode}");
+
       if (response.statusCode == 200) {
-        final decodedData = jsonDecode(response.body);
+        final decodedData = response.data;
 
-        // vd: JSON trả về có dạng: { "success": true, "data": { ... } }
         if (decodedData['success'] == true) {
-          return decodedData['data'];
-        }
-      }
+          var aiData = decodedData['data'];
 
-      print("Lỗi API AI: ${response.statusCode} - ${response.body}");
-      return null;
+          //  Tự động tính điểm
+          int calculatedPoints = 2;
+          if (aiData['is_recyclable'] == true) {
+            calculatedPoints = 15;
+          } else if (aiData['is_organic'] == true) {
+            calculatedPoints = 5;
+          }
+
+          print(" AI Nhận diện thành công: ${aiData['item_name']}");
+
+          return {
+            "itemName": aiData['item_name'] ?? "Không nhận diện được",
+            "category": aiData['label'] ?? "Chưa rõ",
+            "confidence": 0.98,
+            "suggestion":
+                aiData['disposal_advice'] ?? "Hãy bỏ rác đúng nơi quy định.",
+            "points": calculatedPoints,
+          };
+        } else {
+          print(" AI từ chối: ${decodedData['message']}");
+          return null;
+        }
+      } else {
+        print(" Lỗi Server: ${response.statusCode} - ${response.data}");
+        return null;
+      }
     } catch (e) {
-      print("Lỗi kết nối AI Service: $e");
+      print(" Lỗi kết nối AI Service: $e");
       return null;
     }
   }
 
-  // --- 2.  (MOCK DATA) ---
+  // --- MOCK DATA ---
   static Future<Map<String, dynamic>> _callMockApi() async {
     await Future.delayed(const Duration(seconds: 3));
-
     return {
       "itemName": "Chai nhựa PET",
       "category": "Rác tái chế",
