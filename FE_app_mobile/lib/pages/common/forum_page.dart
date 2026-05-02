@@ -16,10 +16,14 @@ class ForumPage extends StatefulWidget {
   State<ForumPage> createState() => _ForumPageState();
 }
 
-class _ForumPageState extends State<ForumPage> {
+class _ForumPageState extends State<ForumPage>
+    with AutomaticKeepAliveClientMixin {
   // --- BIẾN DỮ LIỆU ---
   List<ForumPost> _posts = [];
   bool _isLoading = true;
+
+  @override
+  bool get wantKeepAlive => true;
 
   // --- BIẾN LỌC ---
   String _filterCategory = "All";
@@ -635,6 +639,8 @@ class _ForumPageState extends State<ForumPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+
     final displayPosts = _posts.where((post) {
       if (_filterCategory != "All" && post.tagName != _filterCategory) {
         return false;
@@ -671,95 +677,97 @@ class _ForumPageState extends State<ForumPage> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-      body: RefreshIndicator(
-        onRefresh: _loadData,
-        child: Column(
-          children: [
-            // HEADER
-            Container(
-              padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
-              color: const Color(0xFFB71C1C),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundImage: NetworkImage(
-                      UserData.avatar ?? 'https://i.pravatar.cc/300',
-                    ),
-                    backgroundColor: Colors.white,
+      body: Column(
+        children: [
+          // HEADER
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
+            color: const Color(0xFFB71C1C),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 20,
+                  backgroundImage: NetworkImage(
+                    UserData.avatar ?? 'https://i.pravatar.cc/300',
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Chào, ${_getShortName(UserData.name ?? "Bạn")}",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          UserData.role ?? "Sinh viên",
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Row(
+                  backgroundColor: Colors.white,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      IconButton(
-                        icon: const Icon(
-                          Icons.chat_bubble_outline,
+                      Text(
+                        "Chào, ${_getShortName(UserData.name ?? "Bạn")}",
+                        style: const TextStyle(
                           color: Colors.white,
-                          size: 24,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
                         ),
-                        onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ChatListPage(),
-                          ),
-                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.search,
-                          color: Colors.white,
-                          size: 24,
+                      Text(
+                        UserData.role ?? "Sinh viên",
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
                         ),
-                        onPressed: _openSearch,
-                      ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.filter_alt_outlined,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                        onPressed: _showFilterSheet,
                       ),
                     ],
                   ),
-                ],
-              ),
-            ),
-
-            // BODY
-            Expanded(
-              child: _isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        color: Color(0xFFB71C1C),
+                ),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(
+                        Icons.chat_bubble_outline,
+                        color: Colors.white,
+                        size: 24,
                       ),
-                    )
-                  : SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ChatListPage(),
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.search,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      onPressed: _openSearch,
+                    ),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.filter_alt_outlined,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      onPressed: _showFilterSheet,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // BODY
+          Expanded(
+            child: _isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(color: Color(0xFFB71C1C)),
+                  )
+                : RefreshIndicator(
+                    color: const Color(0xFFB71C1C),
+                    backgroundColor: Colors.white,
+                    onRefresh:
+                        _loadData, // Đã chuyển RefreshIndicator vào đúng chỗ
+                    child: SingleChildScrollView(
+                      physics:
+                          const AlwaysScrollableScrollPhysics(), // Đảm bảo luôn vuốt được
                       child: Column(
                         children: [
                           const SizedBox(
@@ -857,9 +865,9 @@ class _ForumPageState extends State<ForumPage> {
                         ],
                       ),
                     ),
-            ),
-          ],
-        ),
+                  ),
+          ),
+        ],
       ),
     );
   }

@@ -1,9 +1,11 @@
 class ApiConstants {
-  static const String serverIp = "192.168.2.14";
-  static const String port = "5000";
-
-  // Đường dẫn gốc dùng chung cho toàn bộ App
-  static const String baseUrl = "http://$serverIp:$port/api/mobile";
-  // Dùng cho gọi hình ảnh (Chỉ đến thư mục gốc của server)
-  static const String serverUrl = "http://$serverIp:$port";
+  // 1. Link Backend Node.js 
+  static const String backendDomain = "doan-environment-8ekr.onrender.com";
+  
+  // 2. Link Backend AI Python 
+  static const String aiDomain = "doan-environment-iu49.onrender.com"; 
+  static const String baseUrl = "https://$backendDomain/api/mobile";
+  static const String serverUrl = "https://$backendDomain";
+  // Đường dẫn gốc cho con AI (Python)
+  static const String aiBaseUrl = "https://$aiDomain";
 }

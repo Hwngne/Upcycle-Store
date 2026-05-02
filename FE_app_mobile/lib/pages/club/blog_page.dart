@@ -10,10 +10,16 @@ class BlogPage extends StatefulWidget {
   State<BlogPage> createState() => _BlogPageState();
 }
 
-class _BlogPageState extends State<BlogPage> {
+// 1. Thêm Mixin giữ trạng thái
+class _BlogPageState extends State<BlogPage>
+    with AutomaticKeepAliveClientMixin {
   List<ForumPost> _myPosts = [];
   bool _isLoading = true;
   String _selectedFilter = "All";
+
+  // Bật cờ giữ trạng thái
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -43,6 +49,9 @@ class _BlogPageState extends State<BlogPage> {
 
   @override
   Widget build(BuildContext context) {
+    // 2. Bắt buộc gọi super.build
+    super.build(context);
+
     // Logic lọc theo Tab
     final displayPosts = _myPosts.where((post) {
       if (_selectedFilter == "All") return true;
@@ -118,8 +127,7 @@ class _BlogPageState extends State<BlogPage> {
                   ),
                 ),
                 Text(
-                  UserData.role ??
-                      "Câu Lạc Bộ", 
+                  UserData.role ?? "Câu Lạc Bộ",
                   style: const TextStyle(fontSize: 13, color: Colors.grey),
                 ),
                 const SizedBox(height: 15),
@@ -167,6 +175,7 @@ class _BlogPageState extends State<BlogPage> {
             child: RefreshIndicator(
               onRefresh: _loadMyPosts,
               color: const Color(0xFFB71C1C),
+              backgroundColor: Colors.white,
               child: _isLoading
                   ? const Center(
                       child: CircularProgressIndicator(
@@ -187,6 +196,8 @@ class _BlogPageState extends State<BlogPage> {
                       ],
                     )
                   : ListView.builder(
+                      // 3. Thêm physics để luôn vuốt làm mới được dù danh sách ngắn
+                      physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
                         vertical: 10,
@@ -344,7 +355,7 @@ class _BlogPageState extends State<BlogPage> {
           const SizedBox(height: 12),
           Row(
             children: [
-              Icon(Icons.favorite, color: Colors.red, size: 20),
+              const Icon(Icons.favorite, color: Colors.red, size: 20),
               const SizedBox(width: 4),
               Text("${post.likes}", style: TextStyle(color: Colors.grey[700])),
               const SizedBox(width: 20),

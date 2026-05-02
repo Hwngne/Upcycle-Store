@@ -9,9 +9,15 @@ class RankPage extends StatefulWidget {
   State<RankPage> createState() => _RankPageState();
 }
 
-class _RankPageState extends State<RankPage> {
+// 1. Thêm Mixin giữ trạng thái
+class _RankPageState extends State<RankPage>
+    with AutomaticKeepAliveClientMixin {
   bool _isLoading = true;
   List<Map<String, dynamic>> _displayList = [];
+
+  // Bật cờ giữ trạng thái
+  @override
+  bool get wantKeepAlive => true;
 
   // Dữ liệu giả lập (Backup)
   final List<Map<String, dynamic>> _mockBackupData = [
@@ -135,6 +141,9 @@ class _RankPageState extends State<RankPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Bắt buộc gọi super.build
+    super.build(context);
+
     if (_isLoading) {
       return const Scaffold(
         body: Center(
@@ -224,6 +233,7 @@ class _RankPageState extends State<RankPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
+                    // Đã tăng chiều cao ở hàm _buildPodiumItem để fix overflow
                     _buildPodiumItem(top2, 2, 90, const Color(0xFFC0C0C0)),
                     _buildPodiumItem(top1, 1, 110, const Color(0xFFFFD700)),
                     _buildPodiumItem(top3, 3, 90, const Color(0xFFCD7F32)),
@@ -242,12 +252,20 @@ class _RankPageState extends State<RankPage> {
                       top: Radius.circular(30),
                     ),
                   ),
-                  child: ListView.builder(
-                    padding: const EdgeInsets.only(top: 20, bottom: 100),
-                    itemCount: restOfList.length,
-                    itemBuilder: (context, index) {
-                      return _buildRankItem(restOfList[index]);
-                    },
+                  // Thêm RefreshIndicator bọc quanh danh sách để làm mới
+                  child: RefreshIndicator(
+                    color: const Color(0xFFB71C1C),
+                    backgroundColor: Colors.white,
+                    onRefresh: _loadData,
+                    child: ListView.builder(
+                      physics:
+                          const AlwaysScrollableScrollPhysics(), // Đảm bảo luôn vuốt được
+                      padding: const EdgeInsets.only(top: 20, bottom: 100),
+                      itemCount: restOfList.length,
+                      itemBuilder: (context, index) {
+                        return _buildRankItem(restOfList[index]);
+                      },
+                    ),
                   ),
                 ),
               ),
@@ -338,7 +356,8 @@ class _RankPageState extends State<RankPage> {
           ),
           const SizedBox(height: 10),
           Container(
-            height: rank == 1 ? 140 : (rank == 2 ? 110 : 90),
+            // FIX LỖI OVERFLOW: Tăng chiều cao của các bục (cũ là 140, 110, 90)
+            height: rank == 1 ? 150 : (rank == 2 ? 120 : 105),
             width: double.infinity,
             margin: const EdgeInsets.symmetric(horizontal: 5),
             decoration: BoxDecoration(
@@ -361,18 +380,21 @@ class _RankPageState extends State<RankPage> {
                 ),
                 const SizedBox(height: 5),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6.0), 
-                  child: Text(
-                    user['name'],
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
+                  padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                  // FIX LỖI OVERFLOW: Bọc FittedBox để text quá dài tự động thu nhỏ
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      user['name'],
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                 ),
+                const SizedBox(height: 2),
                 Text(
                   "${user['points']}",
                   style: const TextStyle(

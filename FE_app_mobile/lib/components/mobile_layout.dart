@@ -127,7 +127,10 @@ class _MobileLayoutState extends State<MobileLayout> {
             colors: [Color(0xFFF3DDDD), Color(0xFFFFFFFF), Color(0xFFE5EFFF)],
           ),
         ),
-        child: SafeArea(bottom: false, child: _pages[_currentIndex]),
+        child: SafeArea(
+          bottom: false,
+          child: IndexedStack(index: _currentIndex, children: _pages),
+        ),
       ),
 
       // 2. MENU DƯỚI (Bottom Navigation)
