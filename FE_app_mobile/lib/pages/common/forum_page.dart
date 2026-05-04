@@ -872,6 +872,198 @@ class _ForumPageState extends State<ForumPage>
     );
   }
 
+  // --- HÀM HIỂN THỊ POPUP ĐẶT MUA SẢN PHẨM ---
+  void _showBuyDialog(BuildContext context, ForumPost post) {
+    int selectedQuantity = 1;
+    int maxQuantity = post.quantity ?? 1;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    "Xác nhận đặt hàng",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1A237E),
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  Text(
+                    post.title ?? post.category ?? "Sản phẩm",
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    "Đơn giá: ${formatCurrency(post.price ?? 0)}đ",
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                  const Divider(height: 30),
+
+                  const Text(
+                    "Chọn số lượng:",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 10),
+                  // Bộ đếm số lượng
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        icon: const Icon(
+                          Icons.remove_circle_outline,
+                          color: Colors.red,
+                          size: 30,
+                        ),
+                        onPressed: selectedQuantity > 1
+                            ? () => setDialogState(() => selectedQuantity--)
+                            : null,
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          "$selectedQuantity",
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.add_circle_outline,
+                          color: Colors.green,
+                          size: 30,
+                        ),
+                        onPressed: selectedQuantity < maxQuantity
+                            ? () => setDialogState(() => selectedQuantity++)
+                            : null,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    "Kho còn: $maxQuantity",
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  const Divider(height: 30),
+
+                  // Tổng tiền
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        "Tổng thanh toán:",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        "${formatCurrency((post.price ?? 0) * selectedQuantity)}đ",
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 25),
+
+                  // Nút bấm
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: const Text("Hủy"),
+                        ),
+                      ),
+                      const SizedBox(width: 15),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(context); // Tắt popup
+
+                            // CHUYỂN SANG TRANG CHAT & MANG THEO DỮ LIỆU ĐẶT HÀNG
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ChatDetailPage(
+                                  partnerId: post.authorId,
+                                  partnerName: post.authorName,
+                                  partnerImage: post.authorAvatar,
+                                  isOnline: true,
+                                  productInfo: {
+                                    'title':
+                                        post.title ??
+                                        post.category ??
+                                        "Sản phẩm",
+                                    'price': post.price,
+                                    'image': post.image,
+                                    'orderQuantity':
+                                        selectedQuantity, // Gửi thêm số lượng mua
+                                    'isOrderRequest':
+                                        true, // Cờ báo hiệu đây là yêu cầu mua hàng
+                                    'postId': post
+                                        .id, // ID bài viết để xử lý kho sau này
+                                  },
+                                ),
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF059669),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: const Text(
+                            "Tạo đơn",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   // --- WIDGET HELPER ---
   Widget _buildDropdown(
     String? value,
@@ -1321,27 +1513,27 @@ class _ForumPageState extends State<ForumPage>
                       ? null
                       : () {
                           if (post.authorId == UserData.id) return;
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ChatDetailPage(
-                                partnerId: post.authorId,
-                                partnerName: post.authorName,
-                                partnerImage: post.authorAvatar,
-                                isOnline: true,
-                                productInfo: isProduct
-                                    ? {
-                                        'title':
-                                            post.title ??
-                                            post.category ??
-                                            "Sản phẩm",
-                                        'price': post.price,
-                                        'image': post.image,
-                                      }
-                                    : null,
+
+                          // LOGIC MỚI: Tách biệt luồng Mua sản phẩm và Liên hệ sự kiện
+                          if (isProduct) {
+                            // Nếu là sản phẩm -> Mở Popup chọn số lượng
+                            _showBuyDialog(context, post);
+                          } else {
+                            // Nếu là sự kiện/kiến thức -> Vào thẳng Chat như cũ
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ChatDetailPage(
+                                  partnerId: post.authorId,
+                                  partnerName: post.authorName,
+                                  partnerImage: post.authorAvatar,
+                                  isOnline: true,
+                                  productInfo:
+                                      null, // Không mang theo cờ đặt hàng
+                                ),
                               ),
-                            ),
-                          );
+                            );
+                          }
                         },
                   icon: Icon(
                     isProduct ? Icons.shopping_cart_checkout : Icons.message,

@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../services/event_service.dart';
 import '../services/api_constrants.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class BannerSlider extends StatefulWidget {
   const BannerSlider({super.key});
@@ -31,15 +33,20 @@ class _BannerSliderState extends State<BannerSlider> {
         _banners = data;
         _isLoading = false;
 
+        // ĐÃ SỬA: Cập nhật danh sách lưu cứng thành link Cloudinary
         if (_banners.isEmpty) {
           _banners = [
             {
               'bannerUrl':
-                  "https://img.freepik.com/free-vector/flat-world-environment-day-illustration_23-2149368364.jpg",
+                  "https://res.cloudinary.com/dl4vyi8yx/image/upload/v1777876255/banner_1_tsnurp.png",
             },
             {
               'bannerUrl':
-                  "https://img.freepik.com/free-vector/hand-drawn-world-environment-day-illustration_23-2149376674.jpg",
+                  "https://res.cloudinary.com/dl4vyi8yx/image/upload/v1777876261/banner_2_olimi8.png",
+            },
+            {
+              'bannerUrl':
+                  "https://res.cloudinary.com/dl4vyi8yx/image/upload/v1777876263/banner_3_jvxztq.png",
             },
           ];
         }
@@ -74,7 +81,7 @@ class _BannerSliderState extends State<BannerSlider> {
     super.dispose();
   }
 
-  // Hàm xử lý link ảnh
+  // Hàm xử lý link ảnh mạng
   String _getImageUrl(String url) {
     if (url.startsWith('http')) return url;
     String serverUrl = ApiConstants.serverUrl;
@@ -84,7 +91,9 @@ class _BannerSliderState extends State<BannerSlider> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFFB71C1C)),
+      );
     }
 
     return Stack(
@@ -100,19 +109,18 @@ class _BannerSliderState extends State<BannerSlider> {
           },
           itemBuilder: (context, index) {
             final banner = _banners[index];
-            final imgUrl = _getImageUrl(banner['bannerUrl']);
+            final rawUrl = banner['bannerUrl'] ?? "";
+
+            // Phân biệt ảnh local (app) hay ảnh mạng (API)
+            final bool isLocalAsset = rawUrl.startsWith('assets/');
+            final String finalImgUrl = isLocalAsset
+                ? rawUrl
+                : _getImageUrl(rawUrl);
 
             return Container(
               margin: const EdgeInsets.symmetric(horizontal: 5),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(15),
-                image: DecorationImage(
-                  image: NetworkImage(imgUrl),
-                  fit: BoxFit.cover,
-                  onError: (exception, stackTrace) {
-                    // Xử lý khi lỗi ảnh
-                  },
-                ),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.1),
@@ -120,6 +128,42 @@ class _BannerSliderState extends State<BannerSlider> {
                     offset: const Offset(0, 5),
                   ),
                 ],
+              ),
+              // Dùng ClipRRect để cắt bo góc cho toàn bộ các lớp bên trong
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(15),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // LỚP 1: Lớp ảnh nền mờ (Phóng to tràn viền)
+                    Image(
+                      image: isLocalAsset
+                          ? AssetImage(finalImgUrl) as ImageProvider
+                          // Thay NetworkImage bằng CachedNetworkImageProvider
+                          : CachedNetworkImageProvider(finalImgUrl),
+                      fit: BoxFit.cover,
+                    ),
+
+                    // LỚP 2: Hiệu ứng làm mờ và làm tối nhẹ nền
+                    BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
+                      child: Container(
+                        color: Colors.black.withOpacity(
+                          0.3,
+                        ), // Tối nhẹ để làm nổi bật ảnh chính
+                      ),
+                    ),
+
+                    // LỚP 3: Ảnh chính của sự kiện (Hiển thị trọn vẹn)
+                    Image(
+                      image: isLocalAsset
+                          ? AssetImage(finalImgUrl) as ImageProvider
+                          // Thay NetworkImage bằng CachedNetworkImageProvider
+                          : CachedNetworkImageProvider(finalImgUrl),
+                      fit: BoxFit.contain, // Không bao giờ bị cắt mất ảnh
+                    ),
+                  ],
+                ),
               ),
             );
           },

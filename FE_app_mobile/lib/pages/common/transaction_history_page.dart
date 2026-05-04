@@ -1,19 +1,25 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import '../../components/app_background.dart';
-import '../../services/gift_service.dart'; // Import Service
+import '../../services/gift_service.dart';
+import '../../services/auth_service.dart';
+import '../../services/user_service.dart';
+import '../../services/api_constrants.dart';
 
-// --- 1. ĐỊNH NGHĨA MODEL NỘI BỘ (Để không phụ thuộc mock_data) ---
+// --- 1. ĐỊNH NGHĨA MODEL NỘI BỘ ---
 enum TransactionStatus { pending, completed, cancelled, expired }
 
 class TransactionItem {
   final String id;
   final String itemName;
-  final String statusText; // Text hiển thị
+  final String statusText;
   final TransactionStatus status;
-  final String role; // "Đổi quà"
-  final String price;
+  final String role; // "Đổi quà", "Bên mua", "Bên bán"
+  final String price; // Hiển thị Điểm hoặc VNĐ
   final DateTime date;
-  final DateTime expiresAt;
+  final DateTime? expiresAt; // C2C không cần hạn nhận
+  final String? partnerName; // Tên đối tác (cho C2C)
 
   TransactionItem({
     required this.id,
@@ -23,7 +29,8 @@ class TransactionItem {
     required this.role,
     required this.price,
     required this.date,
-    required this.expiresAt,
+    this.expiresAt,
+    this.partnerName,
   });
 }
 
@@ -35,14 +42,12 @@ class TransactionHistoryPage extends StatefulWidget {
 }
 
 class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
-  // Service
   final GiftService _giftService = GiftService();
+  final String baseUrl = ApiConstants.baseUrl;
 
-  // Dữ liệu
   List<TransactionItem> _transactionList = [];
   bool _isLoading = true;
 
-  // Biến bộ lọc
   String _selectedRole = "All"; // All, Bên mua, Bên bán, Đổi quà
   DateTime? _fromDate;
   DateTime? _toDate;
@@ -53,95 +58,158 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
   @override
   void initState() {
     super.initState();
-    // Mặc định lọc từ đầu năm 2024
-    _fromDate = DateTime(2024, 1, 1);
+    _fromDate = DateTime(2025, 1, 1);
     _toDate = DateTime.now();
 
-    _fromDateController.text = "1/1/2024";
+    _fromDateController.text = "1/1/2025";
     _toDateController.text =
         "${_toDate!.day}/${_toDate!.month}/${_toDate!.year}";
 
-    // GỌI API LẤY DỮ LIỆU THẬT
     _loadHistoryData();
   }
 
-  // --- HÀM TẢI DỮ LIỆU TỪ SERVER (ĐÃ SỬA LỖI AN TOÀN) ---
+  // Hàm format tiền tệ
+  String _formatCurrency(dynamic amount) {
+    if (amount == null) return "0";
+    int value = amount is double
+        ? amount.toInt()
+        : int.tryParse(amount.toString()) ?? 0;
+    return value.toString().replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (Match m) => '${m[1]}.',
+        ) +
+        "đ";
+  }
+
+  // --- HÀM TẢI DỮ LIỆU TỪ SERVER (GỘP ĐỔI QUÀ VÀ C2C) ---
   Future<void> _loadHistoryData() async {
+    setState(() => _isLoading = true);
+
+    List<TransactionItem> mergedList = [];
+    String myId = UserData.id ?? "";
+    if (myId.isEmpty) {
+      await UserService.fetchUserInfo();
+      myId = UserData.id ?? "";
+    }
+
     try {
-      final rawData = await _giftService.fetchHistory();
+      // 1. TẢI DỮ LIỆU ĐỔI QUÀ (CŨ)
+      try {
+        final rawGiftData = await _giftService.fetchHistory();
+        for (var item in rawGiftData) {
+          String serverStatus = item['status'] ?? 'pending';
+          TransactionStatus statusEnum = TransactionStatus.pending;
+          String statusDisplay = "Chờ nhận quà";
 
-      List<TransactionItem> mappedList = [];
+          if (serverStatus == 'used' || serverStatus == 'completed') {
+            statusEnum = TransactionStatus.completed;
+            statusDisplay = "Đã nhận quà";
+          } else if (serverStatus == 'expired') {
+            statusEnum = TransactionStatus.expired;
+            statusDisplay = "Đã hết hạn";
+          } else if (serverStatus == 'cancelled') {
+            statusEnum = TransactionStatus.cancelled;
+            statusDisplay = "Đã hủy";
+          }
 
-      for (var item in rawData) {
-        // 1. Xử lý trạng thái từ Server (pending/used/expired)
-        String serverStatus = item['status'] ?? 'pending';
-        TransactionStatus statusEnum = TransactionStatus.pending;
-        String statusDisplay = "Chờ nhận quà";
+          DateTime createdDate = item['createdAt'] != null
+              ? DateTime.tryParse(item['createdAt'].toString()) ??
+                    DateTime.now()
+              : DateTime.now();
+          DateTime expiresDate = item['expiresAt'] != null
+              ? DateTime.tryParse(item['expiresAt'].toString()) ??
+                    createdDate.add(const Duration(days: 3))
+              : createdDate.add(const Duration(days: 3));
 
-        if (serverStatus == 'used' || serverStatus == 'completed') {
-          statusEnum = TransactionStatus.completed;
-          statusDisplay = "Đã nhận quà";
-        } else if (serverStatus == 'expired') {
-          statusEnum = TransactionStatus.expired;
-          statusDisplay = "Đã hết hạn";
-        } else if (serverStatus == 'cancelled') {
-          statusEnum = TransactionStatus.cancelled;
-          statusDisplay = "Đã hủy";
-        } else {
-          // pending
-          statusEnum = TransactionStatus.pending;
-          statusDisplay = "Chờ nhận quà";
+          mergedList.add(
+            TransactionItem(
+              id: item['redemptionCode'] ?? item['rewardCode'] ?? 'N/A',
+              itemName: item['giftName'] ?? 'Quà tặng',
+              status: statusEnum,
+              statusText: statusDisplay,
+              role: "Đổi quà",
+              price: "-${item['pointsSpent'] ?? 0} Điểm",
+              date: createdDate,
+              expiresAt: expiresDate,
+            ),
+          );
         }
-
-        // 2. Xử lý Ngày tháng AN TOÀN (Tránh crash nếu null)
-        DateTime createdDate = DateTime.now();
-        if (item['createdAt'] != null) {
-          createdDate =
-              DateTime.tryParse(item['createdAt'].toString()) ?? DateTime.now();
-        }
-
-        DateTime expiresDate = createdDate.add(const Duration(days: 3));
-        if (item['expiresAt'] != null) {
-          expiresDate =
-              DateTime.tryParse(item['expiresAt'].toString()) ?? expiresDate;
-        }
-
-        // 3. Xử lý Mã Code (Hỗ trợ cả tên cũ và mới)
-        String transCode =
-            item['redemptionCode'] ?? item['rewardCode'] ?? 'N/A';
-
-        // 4. Map sang Object
-        mappedList.add(
-          TransactionItem(
-            id: transCode,
-            itemName: item['giftName'] ?? 'Quà tặng',
-            status: statusEnum,
-            statusText: statusDisplay,
-            role: "Đổi quà", // API này chuyên về đổi quà
-            price: "-${item['pointsSpent'] ?? 0} Điểm", // Fix lỗi hiển thị null
-            date: createdDate,
-            expiresAt: expiresDate,
-          ),
-        );
+      } catch (e) {
+        print("Lỗi load quà: $e");
       }
+
+      // 2. TẢI DỮ LIỆU GIAO DỊCH C2C (MỚI)
+      try {
+        final token = await AuthService.getToken();
+        final response = await http.get(
+          Uri.parse('$baseUrl/transactions/history/$myId'),
+          headers: {'Authorization': 'Bearer $token'},
+        );
+
+        if (response.statusCode == 200) {
+          final List<dynamic> c2cData = jsonDecode(response.body);
+          for (var item in c2cData) {
+            String serverStatus = item['status'] ?? 'completed';
+            TransactionStatus statusEnum = serverStatus == 'completed'
+                ? TransactionStatus.completed
+                : TransactionStatus.pending;
+            String statusDisplay = serverStatus == 'completed'
+                ? "Giao dịch thành công"
+                : "Đang chờ";
+
+            // Phân biệt Bên Mua hay Bên Bán
+            String role = (item['buyerId'] == myId) ? "Bên mua" : "Bên bán";
+            String partner = (item['buyerId'] == myId)
+                ? (item['sellerName'] ?? "Người bán")
+                : (item['buyerName'] ?? "Người mua");
+
+            // Format giá tiền
+            int qty = item['quantity'] ?? 1;
+            int unitPrice = item['price'] ?? 0;
+            String priceDisplay =
+                (role == "Bên mua" ? "-" : "+") +
+                _formatCurrency(qty * unitPrice);
+
+            DateTime createdDate = item['createdAt'] != null
+                ? DateTime.tryParse(item['createdAt'].toString()) ??
+                      DateTime.now()
+                : DateTime.now();
+
+            mergedList.add(
+              TransactionItem(
+                id:
+                    item['_id']?.toString().substring(0, 8).toUpperCase() ??
+                    'DHX', // Sinh mã DH ngắn
+                itemName: item['productName'] ?? 'Sản phẩm',
+                status: statusEnum,
+                statusText: statusDisplay,
+                role: role,
+                price: priceDisplay,
+                date: createdDate,
+                partnerName: partner,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        print("Lỗi load C2C: $e");
+      }
+
+      // 3. SẮP XẾP THEO NGÀY MỚI NHẤT
+      mergedList.sort((a, b) => b.date.compareTo(a.date));
 
       if (mounted) {
         setState(() {
-          _transactionList = mappedList;
+          _transactionList = mergedList;
           _isLoading = false;
         });
       }
     } catch (e) {
-      print("❌ Lỗi load lịch sử: $e");
-      if (mounted) {
-        setState(() {
-          _isLoading = false; // Tắt loading dù lỗi để không treo màn hình
-        });
-      }
+      print("Lỗi tổng load lịch sử: $e");
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // Hàm chọn ngày (Giữ nguyên)
   Future<void> _selectDate(
     BuildContext context,
     TextEditingController controller,
@@ -184,10 +252,7 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
   Widget build(BuildContext context) {
     // LOGIC LỌC DỮ LIỆU
     final filteredList = _transactionList.where((item) {
-      // 1. Lọc theo Vai trò
       bool matchRole = _selectedRole == "All" || item.role == _selectedRole;
-
-      // 2. Lọc theo Ngày
       bool matchDate = true;
       if (_fromDate != null) {
         matchDate =
@@ -203,10 +268,7 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
               _toDate!.copyWith(hour: 23, minute: 59, second: 59),
             );
       }
-      bool isRedeemTransaction =
-          !item.id.startsWith("DAILY") && !item.id.startsWith("TASK");
-
-      return matchRole && matchDate && isRedeemTransaction;
+      return matchRole && matchDate;
     }).toList();
 
     return Scaffold(
@@ -247,13 +309,17 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
 
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFFB71C1C),
+                      ),
+                    )
                   : SingleChildScrollView(
                       padding: const EdgeInsets.all(20),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // 1. THẺ THỐNG KÊ
+                          // THẺ THỐNG KÊ
                           Container(
                             padding: const EdgeInsets.symmetric(
                               vertical: 25,
@@ -301,17 +367,15 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
                               ],
                             ),
                           ),
-
                           const SizedBox(height: 25),
 
-                          // 2. BỘ LỌC NGÀY
+                          // BỘ LỌC NGÀY
                           _buildDateInput("Từ ngày", _fromDateController, true),
                           const SizedBox(height: 15),
                           _buildDateInput("Đến ngày", _toDateController, false),
-
                           const SizedBox(height: 20),
 
-                          // 3. BỘ LỌC LOẠI GIAO DỊCH
+                          // BỘ LỌC LOẠI GIAO DỊCH
                           SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
                             child: Row(
@@ -341,7 +405,6 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
                               ],
                             ),
                           ),
-
                           const SizedBox(height: 15),
 
                           // Nút "Hiển thị tất cả"
@@ -366,12 +429,11 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
                               ],
                             ),
                           ),
-
                           const SizedBox(height: 20),
                           const Divider(thickness: 1, color: Colors.black12),
                           const SizedBox(height: 10),
 
-                          // 4. DANH SÁCH GIAO DỊCH
+                          // DANH SÁCH GIAO DỊCH
                           filteredList.isEmpty
                               ? const Center(
                                   child: Padding(
@@ -402,7 +464,6 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
     );
   }
 
-  // --- Widget ô chọn ngày ---
   Widget _buildDateInput(
     String label,
     TextEditingController controller,
@@ -451,7 +512,6 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
     );
   }
 
-  // --- Widget nút lọc ---
   Widget _buildFilterChip(String label, Color bg, Color text) {
     bool isSelected = _selectedRole == label;
     return InkWell(
@@ -477,25 +537,26 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
 
   // --- Widget Thẻ Giao Dịch ---
   Widget _buildTransactionCard(TransactionItem item) {
-    // Xác định màu trạng thái
     Color statusColor = Colors.green;
+    if (item.status == TransactionStatus.pending)
+      statusColor = Colors.orange;
+    else if (item.status == TransactionStatus.completed)
+      statusColor = Colors.green;
+    else if (item.status == TransactionStatus.expired)
+      statusColor = Colors.grey;
+    else if (item.status == TransactionStatus.cancelled)
+      statusColor = Colors.red;
 
-    // Logic màu sắc dựa trên trạng thái thật từ API
-    if (item.status == TransactionStatus.pending) {
-      statusColor = Colors.orange; // Chờ nhận
-    } else if (item.status == TransactionStatus.completed) {
-      statusColor = Colors.green; // Đã xong
-    } else if (item.status == TransactionStatus.expired) {
-      statusColor = Colors.grey; // Hết hạn
-    } else if (item.status == TransactionStatus.cancelled) {
-      statusColor = Colors.red; // Hủy
-    }
+    // Phân biệt màu nền card
+    Color cardColor = item.role == "Đổi quà"
+        ? const Color(0xFFFCE4EC) // Hồng nhạt cho đổi quà
+        : const Color(0xFFE3F2FD); // Xanh dương nhạt cho C2C
 
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: const Color(0xFFFCE4EC),
+        color: cardColor,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -507,23 +568,45 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
       ),
       child: Column(
         children: [
-          _buildRowInfo("Mã giao dịch", item.id), // Hiển thị mã Code đổi quà
+          _buildRowInfo(
+            item.role == "Đổi quà" ? "Mã giao dịch" : "Mã đơn hàng",
+            item.id,
+          ),
           const SizedBox(height: 10),
           _buildRowInfo("Tên món", item.itemName),
           const SizedBox(height: 10),
           _buildRowInfo("Trạng thái", item.statusText, valueColor: statusColor),
           const SizedBox(height: 10),
-          if (item.status == TransactionStatus.pending) ...[
+
+          // Chỉ hiển thị Hạn nhận cho "Đổi quà"
+          if (item.role == "Đổi quà" &&
+              item.status == TransactionStatus.pending &&
+              item.expiresAt != null) ...[
             _buildRowInfo(
               "Hạn nhận",
-              "${item.expiresAt.day}/${item.expiresAt.month}/${item.expiresAt.year} ${item.expiresAt.hour}:${item.expiresAt.minute.toString().padLeft(2, '0')}",
+              "${item.expiresAt!.day}/${item.expiresAt!.month}/${item.expiresAt!.year} ${item.expiresAt!.hour}:${item.expiresAt!.minute.toString().padLeft(2, '0')}",
               valueColor: Colors.deepOrange,
             ),
             const SizedBox(height: 10),
           ],
+
+          // Chỉ hiển thị Tên đối tác cho giao dịch C2C
+          if (item.role != "Đổi quà" && item.partnerName != null) ...[
+            _buildRowInfo(
+              item.role == "Bên mua" ? "Người bán" : "Người mua",
+              item.partnerName!,
+            ),
+            const SizedBox(height: 10),
+          ],
+
           _buildRowInfo("Vai trò", item.role),
           const SizedBox(height: 10),
-          _buildRowInfo("Chi phí", item.price),
+
+          _buildRowInfo(
+            item.role == "Đổi quà" ? "Chi phí" : "Giá trị",
+            item.price,
+            valueColor: item.price.startsWith('+') ? Colors.green : Colors.red,
+          ),
           const SizedBox(height: 10),
           _buildRowInfo(
             "Ngày tạo",
@@ -534,7 +617,6 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
     );
   }
 
-  // Helper tạo dòng thông tin
   Widget _buildRowInfo(String label, String value, {Color? valueColor}) {
     return Row(
       children: [

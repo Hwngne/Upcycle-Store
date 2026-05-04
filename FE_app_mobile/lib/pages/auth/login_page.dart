@@ -6,6 +6,7 @@ import '../../services/user_service.dart';
 import 'change_password_page.dart';
 import 'forgot_password_page.dart';
 import 'package:bot_toast/bot_toast.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -151,11 +152,21 @@ class _LoginPageState extends State<LoginPage> {
                   children: [
                     const SizedBox(height: 20),
                     Center(
-                      child: Image.asset(
-                        'assets/images/login_image.png',
+                      //  Thay Image.asset thành CachedNetworkImage
+                      child: CachedNetworkImage(
+                        imageUrl:
+                            'https://res.cloudinary.com/dl4vyi8yx/image/upload/v1777876244/login_image_kxxcv8.png',
                         height: 200,
                         fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) {
+                        placeholder: (context, url) => const SizedBox(
+                          height: 200,
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: Color(0xFFB71C1C),
+                            ),
+                          ),
+                        ),
+                        errorWidget: (context, url, error) {
                           return Container(
                             height: 150,
                             width: 150,
@@ -250,7 +261,7 @@ class _LoginPageState extends State<LoginPage> {
                       child: Padding(
                         padding: const EdgeInsets.only(bottom: 10.0),
                         child: Text(
-                          "Powered by SPKT • Phiên bản 1.0",
+                          "Enviroment Mobile • Phiên bản 1.0",
                           style: TextStyle(
                             color: Colors.grey[400],
                             fontSize: 12,

@@ -33,13 +33,23 @@ class _RedeemPointsPageState extends State<RedeemPointsPage> {
     _loadGifts();
   }
 
+  // CẬP NHẬT: Thêm logic lấy lại thông tin user để cập nhật điểm mới nhất
   Future<void> _loadGifts() async {
-    final gifts = await _giftService.fetchGifts();
-    if (mounted) {
-      setState(() {
-        _gifts = gifts;
-        _isLoading = false;
-      });
+    try {
+      // Gọi API lấy lại thông tin user trước để đảm bảo điểm số luôn mới nhất
+      await UserService.fetchUserInfo();
+      final gifts = await _giftService.fetchGifts();
+
+      if (mounted) {
+        setState(() {
+          _currentPoints = UserData.points ?? 0; // Cập nhật lại điểm
+          _gifts = gifts;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print("Lỗi tải quà: $e");
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -90,79 +100,98 @@ class _RedeemPointsPageState extends State<RedeemPointsPage> {
             // 2. BODY
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Thẻ điểm
-                          _buildPointCard(),
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFFB71C1C),
+                      ),
+                    )
+                  // CẬP NHẬT: Bọc RefreshIndicator vào đây
+                  : RefreshIndicator(
+                      color: const Color(0xFFB71C1C),
+                      backgroundColor: Colors.white,
+                      onRefresh: _loadGifts,
+                      child: SingleChildScrollView(
+                        physics:
+                            const AlwaysScrollableScrollPhysics(), // Đảm bảo luôn vuốt được
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Thẻ điểm
+                            _buildPointCard(),
 
-                          const SizedBox(height: 30),
-                          const Text(
-                            "Danh mục đổi điểm",
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                            const SizedBox(height: 30),
+                            const Text(
+                              "Danh mục đổi điểm",
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 20),
+                            const SizedBox(height: 20),
 
-                          // Lưới quà tặng (Dùng dữ liệu API)
-                          _gifts.isEmpty
-                              ? const Center(
-                                  child: Text("Hiện chưa có quà nào."),
-                                )
-                              : GridView.builder(
-                                  padding: EdgeInsets.zero,
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  gridDelegate:
-                                      const SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: 2,
-                                        childAspectRatio: 0.8,
-                                        crossAxisSpacing: 15,
-                                        mainAxisSpacing: 15,
+                            // Lưới quà tặng (Dùng dữ liệu API)
+                            _gifts.isEmpty
+                                ? const Center(
+                                    child: Padding(
+                                      padding: EdgeInsets.only(top: 50),
+                                      child: Text(
+                                        "Hiện chưa có quà nào.",
+                                        style: TextStyle(color: Colors.grey),
                                       ),
-                                  itemCount: displayCount,
-                                  itemBuilder: (context, index) {
-                                    return _buildGiftCard(_gifts[index]);
-                                  },
-                                ),
-
-                          // Nút "Xem thêm" / "Thu gọn"
-                          if (_gifts.length > _initialCount)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 20.0),
-                              child: Center(
-                                child: TextButton.icon(
-                                  onPressed: () {
-                                    setState(() {
-                                      _isExpanded = !_isExpanded;
-                                    });
-                                  },
-                                  icon: Icon(
-                                    _isExpanded
-                                        ? Icons.keyboard_arrow_up
-                                        : Icons.keyboard_arrow_down,
-                                    color: const Color(0xFFB71C1C),
+                                    ),
+                                  )
+                                : GridView.builder(
+                                    padding: EdgeInsets.zero,
+                                    shrinkWrap: true,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    gridDelegate:
+                                        const SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount: 2,
+                                          childAspectRatio: 0.8,
+                                          crossAxisSpacing: 15,
+                                          mainAxisSpacing: 15,
+                                        ),
+                                    itemCount: displayCount,
+                                    itemBuilder: (context, index) {
+                                      return _buildGiftCard(_gifts[index]);
+                                    },
                                   ),
-                                  label: Text(
-                                    _isExpanded
-                                        ? "Thu gọn"
-                                        : "Xem thêm (${_gifts.length - _initialCount} món nữa)",
-                                    style: const TextStyle(
-                                      color: Color(0xFFB71C1C),
-                                      fontWeight: FontWeight.bold,
+
+                            // Nút "Xem thêm" / "Thu gọn"
+                            if (_gifts.length > _initialCount)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 20.0),
+                                child: Center(
+                                  child: TextButton.icon(
+                                    onPressed: () {
+                                      setState(() {
+                                        _isExpanded = !_isExpanded;
+                                      });
+                                    },
+                                    icon: Icon(
+                                      _isExpanded
+                                          ? Icons.keyboard_arrow_up
+                                          : Icons.keyboard_arrow_down,
+                                      color: const Color(0xFFB71C1C),
+                                    ),
+                                    label: Text(
+                                      _isExpanded
+                                          ? "Thu gọn"
+                                          : "Xem thêm (${_gifts.length - _initialCount} món nữa)",
+                                      style: const TextStyle(
+                                        color: Color(0xFFB71C1C),
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
 
-                          const SizedBox(height: 50),
-                        ],
+                            const SizedBox(height: 50),
+                          ],
+                        ),
                       ),
                     ),
             ),
@@ -458,7 +487,6 @@ class _RedeemPointsPageState extends State<RedeemPointsPage> {
 
     // 5. Xử lý kết quả
     if (result['success']) {
-      // 👇 KHAI BÁO BIẾN newPoints TẠI ĐÂY ĐỂ DÙNG ĐƯỢC Ở DƯỚI
       int newPoints = result['data']['newPoints'];
 
       setState(() {
@@ -470,7 +498,6 @@ class _RedeemPointsPageState extends State<RedeemPointsPage> {
       try {
         final prefs = await SharedPreferences.getInstance();
         if (UserData.email != null) {
-          // 👇 Bây giờ biến newPoints đã hợp lệ
           await prefs.setInt('points_${UserData.email}', newPoints);
           print("💾 Đã cập nhật cache điểm số: $newPoints");
         }
@@ -482,6 +509,9 @@ class _RedeemPointsPageState extends State<RedeemPointsPage> {
       String code = result['data']['code'];
       String location = result['data']['location'];
       String expiresAtRaw = result['data']['expiresAt'];
+
+      // Tải lại danh sách quà để cập nhật số lượng còn lại
+      _loadGifts();
 
       _showSuccessItemDialog(gift['name'], code, location, expiresAtRaw);
     } else {
@@ -547,6 +577,7 @@ class _RedeemPointsPageState extends State<RedeemPointsPage> {
                   Text(
                     "Bạn đã đổi thành công 1 $giftName",
                     style: const TextStyle(color: Colors.grey),
+                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 20),
                   Container(

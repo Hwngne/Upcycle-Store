@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cached_network_image/cached_network_image.dart'; 
 import 'login_page.dart';
 
 class OnboardingPage extends StatefulWidget {
@@ -18,16 +19,17 @@ class _OnboardingPageState extends State<OnboardingPage> {
       "title": "Phân Loại Rác Cùng AI",
       "description":
           "Sử dụng công nghệ trí tuệ nhân tạo để nhận diện rác thải trong tích tắc. Cùng UpcycleStore kiến tạo môi trường học tập xanh tại Văn Lang!",
-      "image": "assets/images/onboarding_1.png",
+      "image": "https://res.cloudinary.com/dl4vyi8yx/image/upload/v1777876229/onboarding_1_z8nolm.png", 
     },
     {
       "title": "Tích Điểm & Đổi Quà",
       "description":
           "Tham gia diễn đàn trao đổi đồ tái chế, hoàn thành nhiệm vụ mỗi ngày để tích lũy điểm thưởng và nhận những phần quà hấp dẫn.",
-      "image": "assets/images/onboarding_2.png",
+      "image": "https://res.cloudinary.com/dl4vyi8yx/image/upload/v1777876236/onboarding_2_r0go6q.png", 
     },
   ];
 
+  // Hàm hoàn thành Onboarding và chuyển sang trang Login
   void _finishOnboarding() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('has_seen_onboarding', true);
@@ -47,6 +49,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
       body: SafeArea(
         child: Column(
           children: [
+            // Nút Bỏ qua
             Align(
               alignment: Alignment.topRight,
               child: TextButton(
@@ -82,11 +85,22 @@ class _OnboardingPageState extends State<OnboardingPage> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Image.asset(
-                              onboardingData[index]["image"]!,
+                            // Thay Image.asset thành CachedNetworkImage
+                            CachedNetworkImage(
+                              imageUrl: onboardingData[index]["image"]!,
                               height: screenHeight * 0.35,
                               fit: BoxFit.contain,
-                              errorBuilder: (context, error, stackTrace) {
+                              // Hiển thị vòng xoay trong lúc chờ tải ảnh từ mạng
+                              placeholder: (context, url) => SizedBox(
+                                height: screenHeight * 0.35,
+                                child: const Center(
+                                  child: CircularProgressIndicator(
+                                    color: Color(0xFFB71C1C),
+                                  ),
+                                ),
+                              ),
+                              // Widget hiển thị khi tải ảnh thất bại
+                              errorWidget: (context, url, error) {
                                 return Container(
                                   height: screenHeight * 0.25,
                                   width: screenHeight * 0.25,
@@ -139,7 +153,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
               ),
             ),
 
-            // Phần Bottom
+            // Phần Bottom (Chấm tròn & Nút bấm)
             Padding(
               padding: const EdgeInsets.all(24.0),
               child: Row(
@@ -153,7 +167,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     ),
                   ),
 
-                  // Nút bấm
+                  // Nút bấm Tiếp tục / Bắt đầu ngay
                   ElevatedButton(
                     onPressed: () {
                       if (_currentPage == onboardingData.length - 1) {
@@ -196,7 +210,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
-  // Widget tạo chấm tròn
+  // Widget tạo chấm tròn chuyển trang
   Widget buildDot(int index, BuildContext context) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),

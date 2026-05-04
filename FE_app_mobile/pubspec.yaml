@@ -102,6 +102,8 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+ 
+
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
@@ -109,11 +111,7 @@ flutter_launcher_icons:
   min_sdk_android: 21
 
   # To add assets to your application, add an assets section, like this:
-  assets:
-    - assets/images/login_image.png
-    - assets/images/onboarding_1.png
-    - assets/images/onboarding_2.png
-  #   - images/a_dot_ham.jpeg
+  
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

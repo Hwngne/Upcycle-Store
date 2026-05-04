@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../services/waste_service.dart'; // 👈 Import Service
+import 'package:url_launcher/url_launcher.dart'; 
+import '../../services/waste_service.dart';
 
 class WasteLookupPage extends StatefulWidget {
   const WasteLookupPage({super.key});
@@ -22,11 +23,12 @@ class _WasteLookupPageState extends State<WasteLookupPage> {
   List<String> _areas = [];
 
   bool _isLoading = true; // Trạng thái tải
+  bool _hasSearched = false; // Trạng thái kiểm tra đã bấm nút tìm kiếm chưa
 
   @override
   void initState() {
     super.initState();
-    _loadData(); 
+    _loadData();
   }
 
   // --- HÀM TẢI DỮ LIỆU TỪ SERVER ---
@@ -56,6 +58,7 @@ class _WasteLookupPageState extends State<WasteLookupPage> {
   // Hàm lọc dữ liệu khi bấm nút Tìm
   void _runFilter() {
     setState(() {
+      _hasSearched = true; // Đánh dấu là đã thực hiện tìm kiếm
       _foundStations = _allStations.where((station) {
         // Nếu chưa chọn gì (null) thì coi như đúng
         bool matchType =
@@ -67,10 +70,34 @@ class _WasteLookupPageState extends State<WasteLookupPage> {
     });
   }
 
+  // --- HÀM MỞ GOOGLE MAPS ---
+  Future<void> _openGoogleMaps(String address) async {
+    if (address.trim().isEmpty) return;
+
+    // Mã hóa địa chỉ để đưa vào link an toàn
+    final String query = Uri.encodeComponent(address);
+    final Uri googleUrl = Uri.parse(
+      "https://www.google.com/maps/search/?api=1&query=$query",
+    );
+
+    try {
+      // mode: LaunchMode.externalApplication giúp mở hẳn app Google Maps nếu có cài đặt
+      if (!await launchUrl(googleUrl, mode: LaunchMode.externalApplication)) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Không thể mở bản đồ!')));
+        }
+      }
+    } catch (e) {
+      print("Lỗi khi mở map: $e");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5), // Nền xám nhẹ
+      backgroundColor: const Color(0xFFF5F5F5), 
       appBar: AppBar(
         backgroundColor: const Color(0xFFB71C1C),
         leading: IconButton(
@@ -118,7 +145,7 @@ class _WasteLookupPageState extends State<WasteLookupPage> {
                         // 1. Dropdown Loại rác
                         _buildDropdownLabel("Loại rác tiếp nhận"),
                         DropdownButtonFormField<String>(
-                          initialValue: _selectedType,
+                          value: _selectedType,
                           isExpanded: true,
                           hint: const Text("Chọn loại rác..."),
                           decoration: _inputDecoration(),
@@ -142,7 +169,7 @@ class _WasteLookupPageState extends State<WasteLookupPage> {
                         // 2. Dropdown Khu vực
                         _buildDropdownLabel("Khu vực"),
                         DropdownButtonFormField<String>(
-                          initialValue: _selectedArea,
+                          value: _selectedArea,
                           hint: const Text("Chọn khu vực..."),
                           decoration: _inputDecoration(),
                           items: _areas.map((String area) {
@@ -170,6 +197,8 @@ class _WasteLookupPageState extends State<WasteLookupPage> {
                                     _selectedType = null;
                                     _selectedArea = null;
                                     _foundStations = _allStations; // Reset list
+                                    _hasSearched =
+                                        false; // Reset trạng thái tìm kiếm
                                   });
                                 },
                                 style: ElevatedButton.styleFrom(
@@ -214,7 +243,9 @@ class _WasteLookupPageState extends State<WasteLookupPage> {
 
                   // --- KẾT QUẢ TÌM KIẾM ---
                   Text(
-                    "Kết quả tìm thấy (${_foundStations.length})",
+                    _hasSearched
+                        ? "Kết quả tìm thấy (${_foundStations.length})"
+                        : "Đề xuất cho bạn (${_foundStations.length})",
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -240,53 +271,78 @@ class _WasteLookupPageState extends State<WasteLookupPage> {
                           itemCount: _foundStations.length,
                           itemBuilder: (context, index) {
                             final station = _foundStations[index];
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 15),
-                              padding: const EdgeInsets.all(15),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border(
-                                  left: BorderSide(
-                                    color: _getStationColor(
-                                      station['type'] ?? "",
+
+                            // Tạo chuỗi địa chỉ để tìm trên map (ưu tiên địa chỉ chi tiết + khu vực)
+                            final String addressForMap =
+                                "${station['address'] ?? ''}, ${station['area'] ?? ''}";
+
+                            return InkWell(
+                              onTap: () => _openGoogleMaps(
+                                addressForMap,
+                              ), // Mở Map khi nhấn vào
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: 15),
+                                padding: const EdgeInsets.all(15),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border(
+                                    left: BorderSide(
+                                      color: _getStationColor(
+                                        station['type'] ?? "",
+                                      ),
+                                      width: 5,
                                     ),
-                                    width: 5,
                                   ),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Colors.black12,
+                                      blurRadius: 5,
+                                    ),
+                                  ],
                                 ),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Colors.black12,
-                                    blurRadius: 5,
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    station['name'] ?? "Trạm thu gom",
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            station['name'] ?? "Trạm thu gom",
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                        ),
+                                        // Thêm icon chỉ đường nhỏ để gợi ý người dùng có thể bấm vào
+                                        const Icon(
+                                          Icons.directions,
+                                          color: Color(0xFF1A237E),
+                                          size: 20,
+                                        ),
+                                      ],
                                     ),
-                                  ),
-                                  const Divider(height: 20),
-                                  _rowInfo(
-                                    Icons.delete_outline,
-                                    station['type'] ?? "Không xác định",
-                                  ),
-                                  const SizedBox(height: 5),
-                                  _rowInfo(
-                                    Icons.location_on_outlined,
-                                    "${station['area'] ?? ''} - ${station['address'] ?? ''}",
-                                  ),
-                                  const SizedBox(height: 5),
-                                  _rowInfo(
-                                    Icons.phone,
-                                    station['contact'] ?? "Không có SĐT",
-                                  ),
-                                ],
+                                    const Divider(height: 20),
+                                    _rowInfo(
+                                      Icons.delete_outline,
+                                      station['type'] ?? "Không xác định",
+                                    ),
+                                    const SizedBox(height: 5),
+                                    _rowInfo(
+                                      Icons.location_on_outlined,
+                                      "${station['area'] ?? ''} - ${station['address'] ?? ''}",
+                                    ),
+                                    const SizedBox(height: 5),
+                                    _rowInfo(
+                                      Icons.phone,
+                                      station['contact'] ?? "Không có SĐT",
+                                    ),
+                                  ],
+                                ),
                               ),
                             );
                           },
@@ -344,6 +400,6 @@ class _WasteLookupPageState extends State<WasteLookupPage> {
     if (t.contains("nhựa") || t.contains("plastic")) return Colors.blue;
     if (t.contains("giấy") || t.contains("paper")) return Colors.orange;
     if (t.contains("thực phẩm") || t.contains("food")) return Colors.green;
-    return Colors.red; // Mặc định màu đỏ (Rác sinh hoạt)
+    return Colors.red; 
   }
 }
