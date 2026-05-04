@@ -38,8 +38,6 @@ const postSchema = mongoose.Schema(
     attachment: { type: String, default: "" }, 
     attachmentName: { type: String, default: "" }, 
     
-    topic: { type: String, default: "" }, 
-    
     // Các trường riêng cho "Kiến thức"
     topic: { type: String, default: "" }, 
 
