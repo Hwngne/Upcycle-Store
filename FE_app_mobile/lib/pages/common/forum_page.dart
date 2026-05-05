@@ -882,178 +882,266 @@ class _ForumPageState extends State<ForumPage>
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
           return Dialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(20),
+            backgroundColor:
+                Colors.transparent, // Nền trong suốt để tự vẽ bóng và bo góc
+            insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 20,
+                    offset: Offset(0, 10),
+                  ),
+                ],
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    "Xác nhận đặt hàng",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1A237E),
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-                  Text(
-                    post.title ?? post.category ?? "Sản phẩm",
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    "Đơn giá: ${formatCurrency(post.price ?? 0)}đ",
-                    style: const TextStyle(color: Colors.grey),
-                  ),
-                  const Divider(height: 30),
-
-                  const Text(
-                    "Chọn số lượng:",
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 10),
-                  // Bộ đếm số lượng
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      IconButton(
-                        icon: const Icon(
-                          Icons.remove_circle_outline,
-                          color: Colors.red,
-                          size: 30,
-                        ),
-                        onPressed: selectedQuantity > 1
-                            ? () => setDialogState(() => selectedQuantity--)
-                            : null,
+                  // --- PHẦN 1: HEADER ---
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF3F4F6), // Nền xám nhạt dịu mắt
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(24),
+                        topRight: Radius.circular(24),
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 8,
+                    ),
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 10,
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.shopping_cart_checkout_rounded,
+                            color: Color(0xFF1A237E),
+                            size: 32,
+                          ),
                         ),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          "$selectedQuantity",
-                          style: const TextStyle(
+                        const SizedBox(height: 12),
+                        const Text(
+                          "Xác nhận đặt hàng",
+                          style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
+                            color: Color(0xFF1A237E),
                           ),
                         ),
-                      ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.add_circle_outline,
-                          color: Colors.green,
-                          size: 30,
-                        ),
-                        onPressed: selectedQuantity < maxQuantity
-                            ? () => setDialogState(() => selectedQuantity++)
-                            : null,
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 5),
-                  Text(
-                    "Kho còn: $maxQuantity",
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                  const Divider(height: 30),
 
-                  // Tổng tiền
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        "Tổng thanh toán:",
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        "${formatCurrency((post.price ?? 0) * selectedQuantity)}đ",
-                        style: const TextStyle(
-                          color: Colors.red,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 25),
-
-                  // Nút bấm
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
+                  // --- PHẦN 2: NỘI DUNG SẢN PHẨM ---
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      children: [
+                        Text(
+                          post.title ?? post.category ?? "Sản phẩm",
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
                           ),
-                          child: const Text("Hủy"),
+                          textAlign: TextAlign.center,
                         ),
-                      ),
-                      const SizedBox(width: 15),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.pop(context); // Tắt popup
+                        const SizedBox(height: 6),
+                        Text(
+                          "Đơn giá: ${formatCurrency(post.price ?? 0)}đ",
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const Divider(height: 32),
 
-                            // CHUYỂN SANG TRANG CHAT & MANG THEO DỮ LIỆU ĐẶT HÀNG
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => ChatDetailPage(
-                                  partnerId: post.authorId,
-                                  partnerName: post.authorName,
-                                  partnerImage: post.authorAvatar,
-                                  isOnline: true,
-                                  productInfo: {
-                                    'title':
-                                        post.title ??
-                                        post.category ??
-                                        "Sản phẩm",
-                                    'price': post.price,
-                                    'image': post.image,
-                                    'orderQuantity':
-                                        selectedQuantity, // Gửi thêm số lượng mua
-                                    'isOrderRequest':
-                                        true, // Cờ báo hiệu đây là yêu cầu mua hàng
-                                    'postId': post
-                                        .id, // ID bài viết để xử lý kho sau này
-                                  },
+                        // --- PHẦN 3: BỘ CHỌN SỐ LƯỢNG ---
+                        const Text(
+                          "Chọn số lượng",
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.remove,
+                                  color: Colors.black87,
+                                ),
+                                onPressed: selectedQuantity > 1
+                                    ? () => setDialogState(
+                                        () => selectedQuantity--,
+                                      )
+                                    : null,
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
+                                child: Text(
+                                  "$selectedQuantity",
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF059669),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          child: const Text(
-                            "Tạo đơn",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.add,
+                                  color: Colors.black87,
+                                ),
+                                onPressed: selectedQuantity < maxQuantity
+                                    ? () => setDialogState(
+                                        () => selectedQuantity++,
+                                      )
+                                    : null,
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 8),
+                        Text(
+                          "Kho còn: $maxQuantity",
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // --- PHẦN 4: TỔNG THANH TOÁN ---
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                "Tổng thanh toán:",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.red,
+                                ),
+                              ),
+                              Text(
+                                "${formatCurrency((post.price ?? 0) * selectedQuantity)}đ",
+                                style: const TextStyle(
+                                  color: Colors.red,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // --- PHẦN 5: CÁC NÚT BẤM ---
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.pop(context),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  side: BorderSide(color: Colors.grey.shade300),
+                                ),
+                                child: const Text(
+                                  "Hủy",
+                                  style: TextStyle(
+                                    color: Colors.black87,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  Navigator.pop(context); // Tắt popup
+
+                                  // CHUYỂN SANG TRANG CHAT & MANG THEO DỮ LIỆU ĐẶT HÀNG
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => ChatDetailPage(
+                                        partnerId: post.authorId,
+                                        partnerName: post.authorName,
+                                        partnerImage: post.authorAvatar,
+                                        isOnline: true,
+                                        productInfo: {
+                                          'title':
+                                              post.title ??
+                                              post.category ??
+                                              "Sản phẩm",
+                                          'price': post.price,
+                                          'image': post.image,
+                                          'orderQuantity':
+                                              selectedQuantity, // Gửi thêm số lượng mua
+                                          'isOrderRequest':
+                                              true, // Cờ báo hiệu đây là yêu cầu mua hàng
+                                          'postId': post
+                                              .id, // ID bài viết để xử lý kho sau này
+                                        },
+                                      ),
+                                    ),
+                                  );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF059669),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: const Text(
+                                  "Tạo đơn",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),

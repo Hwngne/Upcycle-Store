@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:video_player/video_player.dart';
 import '../../services/auth_service.dart';
-import '../../services/earn_service.dart'; // Import service của bạn
+import '../../services/earn_service.dart';
 
 class VideoWatchPage extends StatefulWidget {
   final String videoUrl;

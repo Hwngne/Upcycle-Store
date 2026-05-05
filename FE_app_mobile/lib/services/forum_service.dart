@@ -517,8 +517,6 @@ class ForumService {
   ) async {
     try {
       final token = await AuthService.getToken();
-      if (token == null) return null;
-
       final response = await http.put(
         Uri.parse('$baseUrl/$postId/comment/$commentId/reply/$replyId/like'),
         headers: {

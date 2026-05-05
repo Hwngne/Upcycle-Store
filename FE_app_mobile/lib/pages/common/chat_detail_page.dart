@@ -12,6 +12,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:photo_view/photo_view.dart';
 import '../../services/socket_service.dart';
 import '../../services/transaction_service.dart';
+import 'package:bot_toast/bot_toast.dart';
 
 class ChatDetailPage extends StatefulWidget {
   final String partnerId;
@@ -59,6 +60,54 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
   final String baseUrl = ApiConstants.baseUrl;
   final String serverUrl = ApiConstants.serverUrl;
   bool _showProductBanner = false;
+  // --- HÀM THÔNG BÁO HIỆN ĐẠI (BOT TOAST) ---
+  void _showCustomSnackBar(String message, {bool isSuccess = true}) {
+    BotToast.showCustomNotification(
+      toastBuilder: (cancelFunc) {
+        return SafeArea(
+          child: Card(
+            color: isSuccess ? const Color(0xFF059669) : Colors.red.shade600,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
+            margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            elevation: 6,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                children: [
+                  Icon(
+                    isSuccess
+                        ? Icons.check_circle_rounded
+                        : Icons.error_outline_rounded,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      message,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+      duration: const Duration(seconds: 3),
+      align: const Alignment(
+        0,
+        -0.99,
+      ), // Hiển thị mượt mà từ cạnh trên màn hình
+      animationDuration: const Duration(milliseconds: 200),
+    );
+  }
 
   @override
   void initState() {
@@ -404,26 +453,21 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
 
       if (isOrderRequest) {
         // LUỒNG MỚI: Đặt mua sản phẩm
-        // Đóng gói thông tin đơn hàng thành chuỗi JSON để gửi qua Socket
         Map<String, dynamic> orderData = {
           'title': widget.productInfo!['title'],
           'price': widget.productInfo!['price'],
-          'image': widget.productInfo!['image'],
+          'image': widget.productInfo!['image'], // Đã có sẵn dữ liệu ảnh
           'quantity': widget.productInfo!['orderQuantity'],
           'postId': widget.productInfo!['postId'],
-          'status': 'pending', // Trạng thái chờ xác nhận
+          'status': 'pending',
         };
 
-        // Gửi tin nhắn đặc biệt với type là 'order'
         _sendSocketMessage(jsonEncode(orderData), type: 'order');
 
         setState(() {
           _showProductBanner = false;
         });
-
-        return; // Dừng lại, không gửi thêm text mặc định
       } else {
-        // LUỒNG CŨ: Chỉ liên hệ hỏi thăm (Sự kiện, Kiến thức, hoặc Hết hàng)
         String productName = widget.productInfo!['title'];
         String priceStr = _formatCurrency(widget.productInfo!['price']);
         String? imageUrl = widget.productInfo!['image'];
@@ -776,24 +820,22 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
           ),
           IconButton(
             icon: const Icon(Icons.close, size: 20, color: Colors.grey),
-            onPressed: () => setState(
-              () => _showProductBanner = false,
-            ), // Cho phép tắt nếu ko muốn mua nữa
+            onPressed: () => setState(() => _showProductBanner = false),
           ),
         ],
       ),
     );
   }
 
-  // --- WIDGET: BACKGROUND TELEGRAM STYLE (ECO x VLU) ---
+  // --- WIDGET: BACKGROUND TELEGRAM STYLE ---
   Widget _buildTelegramStyleBackground() {
     final List<IconData> doodleIcons = [
-      Icons.eco_outlined, // Lá cây
-      Icons.menu_book_rounded, // Sách vở
-      Icons.recycling_rounded, // Tái chế
-      Icons.school_outlined, // Mũ cử nhân
-      Icons.water_drop_outlined, // Giọt nước
-      Icons.local_florist_outlined, // Hoa/Cây cỏ
+      Icons.eco_outlined,
+      Icons.menu_book_rounded,
+      Icons.recycling_rounded,
+      Icons.school_outlined,
+      Icons.water_drop_outlined,
+      Icons.local_florist_outlined,
     ];
 
     return Container(
@@ -829,7 +871,6 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     );
   }
 
-  // Widget hiển thị ngày tháng ở giữa
   Widget _buildDateSeparator(String dateStr) {
     DateTime date = DateTime.parse(dateStr).toLocal();
     DateTime now = DateTime.now();
@@ -886,8 +927,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
       // GỌI API THẬT QUA TRANSACTION SERVICE
       bool isSuccess = await TransactionService.confirmTransaction(
         postId: orderData['postId'],
-        buyerId:
-            widget.partnerId, // Người đang chat với mình chính là người mua
+        buyerId: widget.partnerId,
         quantity: orderData['quantity'] ?? 1,
         totalPrice: totalPrice,
       );
@@ -896,45 +936,32 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
       if (mounted) Navigator.pop(context);
 
       if (isSuccess) {
-        // Cập nhật trạng thái tin nhắn thành 'completed' trên giao diện
         setState(() {
           final index = messages.indexWhere((m) => m['_id'] == msg['_id']);
           if (index != -1) {
-            // Parse lại content cũ, sửa status thành completed và lưu lại
             Map<String, dynamic> updatedData = Map.from(orderData);
             updatedData['status'] = 'completed';
             messages[index]['content'] = jsonEncode(updatedData);
           }
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(" Giao dịch thành công! Đã lưu vào Lịch sử."),
-            backgroundColor: Colors.green,
-          ),
+        _showCustomSnackBar(
+          "Giao dịch thành công! Đã lưu vào Lịch sử.",
+          isSuccess: true,
         );
       } else {
-        // Nếu Backend trả về lỗi (ví dụ: kho không đủ số lượng)
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(" Xác nhận thất bại. Vui lòng thử lại sau!"),
-            backgroundColor: Colors.red,
-          ),
+        _showCustomSnackBar(
+          "Xác nhận thất bại. Vui lòng thử lại sau!",
+          isSuccess: false,
         );
       }
     } catch (e) {
       if (mounted) Navigator.pop(context);
       print("Lỗi xác nhận đơn: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(" Đã xảy ra lỗi kết nối."),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showCustomSnackBar("Đã xảy ra lỗi kết nối.", isSuccess: false);
     }
   }
 
-  // Tách riêng hàm Build Item
   Widget _buildMessageItem(dynamic msg) {
     dynamic senderData = msg['sender'] ?? msg['senderId'];
     String senderId = (senderData is Map)
@@ -964,7 +991,6 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     bool isRevoked = (msg != null && msg['type'] == 'revoked');
     bool isEdited = (msg != null && msg['isEdited'] == true && !isRevoked);
 
-    // Kiểm tra xem đây có phải là tin nhắn Đặt hàng không
     bool isOrder = (msg != null && msg['type'] == 'order');
     Map<String, dynamic>? orderData;
     if (isOrder) {
@@ -975,7 +1001,6 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
       }
     }
 
-    // Format Time
     String formattedTime = "";
     if (timeStr != null) {
       try {
@@ -998,8 +1023,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
           children: [
             Container(
               margin: const EdgeInsets.symmetric(vertical: 4),
-              padding:
-                  isOrder // Tin nhắn đơn hàng padding nhỏ hơn để lộ Card
+              padding: isOrder
                   ? const EdgeInsets.all(5)
                   : const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
@@ -1059,10 +1083,10 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                         ),
                       ),
                     )
-                  // --- 2. HIỂN THỊ THẺ ĐẶT HÀNG ---
+                  // --- 2. HIỂN THỊ THẺ ĐẶT HÀNG  ---
                   else if (isOrder && orderData != null)
                     Container(
-                      width: 260,
+                      width: 280, // Tăng nhẹ chiều ngang để chứa ảnh
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: Colors.white,
@@ -1090,32 +1114,103 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                             ],
                           ),
                           const Divider(),
-                          Text(
-                            orderData['title'] ?? "Sản phẩm",
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                              color: Colors.black87,
-                            ),
-                            maxLines: 2,
+
+                          // VÙNG HIỂN THỊ ẢNH VÀ THÔNG TIN SONG SONG
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Ảnh sản phẩm
+                              if (orderData['image'] != null &&
+                                  orderData['image'].toString().isNotEmpty)
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: CachedNetworkImage(
+                                    imageUrl:
+                                        orderData['image']
+                                            .toString()
+                                            .startsWith('http')
+                                        ? orderData['image']
+                                        : '$serverUrl${orderData['image']}',
+                                    width: 60,
+                                    height: 60,
+                                    fit: BoxFit.cover,
+                                    placeholder: (context, url) => Container(
+                                      width: 60,
+                                      height: 60,
+                                      color: Colors.grey[200],
+                                      child: const Padding(
+                                        padding: EdgeInsets.all(15),
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      ),
+                                    ),
+                                    errorWidget: (context, url, error) =>
+                                        Container(
+                                          width: 60,
+                                          height: 60,
+                                          color: Colors.grey[200],
+                                          child: const Icon(
+                                            Icons.image_not_supported,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                  ),
+                                )
+                              else
+                                Container(
+                                  width: 60,
+                                  height: 60,
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[200],
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.shopping_bag,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+
+                              const SizedBox(width: 10),
+
+                              // Thông tin sản phẩm bên cạnh
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      orderData['title'] ?? "Sản phẩm",
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        color: Colors.black87,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      "Đơn giá: ${_formatCurrency(orderData['price'])}",
+                                      style: const TextStyle(
+                                        color: Colors.grey,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    Text(
+                                      "Số lượng: ${orderData['quantity']}",
+                                      style: const TextStyle(
+                                        color: Colors.black87,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 5),
-                          Text(
-                            "Đơn giá: ${_formatCurrency(orderData['price'])}",
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 13,
-                            ),
-                          ),
-                          Text(
-                            "Số lượng: ${orderData['quantity']}",
-                            style: const TextStyle(
-                              color: Colors.black87,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                            ),
-                          ),
-                          const SizedBox(height: 5),
+
+                          const SizedBox(height: 10),
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
@@ -1193,7 +1288,6 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                                 ),
                               ),
                           ] else ...[
-                            // Lời nhắn cho người Mua
                             Container(
                               width: double.infinity,
                               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1206,8 +1300,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                               ),
                               child: Text(
                                 orderData['status'] == 'completed'
-                                    ? " Giao dịch hoàn tất"
-                                    : " Đang chờ người bán xác nhận",
+                                    ? "✅ Giao dịch hoàn tất"
+                                    : "⏳ Đang chờ người bán xác nhận",
                                 style: TextStyle(
                                   color: orderData['status'] == 'completed'
                                       ? Colors.green

@@ -116,32 +116,74 @@ class _CameraAIPageState extends State<CameraAIPage>
     }
   }
 
-  // --- HÀM GỬI ẢNH SANG AI SERVICE ---
+  // --- 1. HÀM GỬI ẢNH SANG AI SERVICE ---
   Future<void> _analyzeWaste() async {
     setState(() => _isProcessing = true);
-    final result = await AiService.scanWaste(_imageFile!);
 
-    if (mounted) {
-      setState(() {
-        _isProcessing = false;
-        if (result != null) {
-          _resultData = result;
-        } else {
-          _resultData = {
-            "itemName": "Không nhận diện được",
-            "category": "Chưa rõ",
-            "confidence": 0.0,
-            "suggestion":
-                "Vui lòng chụp lại ở nơi đủ sáng hoặc thử một góc chụp khác rõ nét hơn.",
-            "points": 0,
-          };
+    try {
+      final result = await AiService.scanWaste(_imageFile!);
+
+      if (mounted) {
+        setState(() {
+          _isProcessing = false;
+          if (result != null) {
+            _resultData = result;
+          } else {
+            // Trường hợp Server AI trả lời nhưng không nhận diện được vật thể
+            _resultData = {
+              "itemName": "Không nhận diện được",
+              "category": "Chưa rõ",
+              "confidence": 0.0,
+              "suggestion":
+                  "Vui lòng chụp lại ở nơi đủ sáng hoặc thử một góc chụp khác rõ nét hơn.",
+              "points": 0,
+            };
+          }
+        });
+
+        _showResultSheet();
+      }
+    } catch (e) {
+      // BẮT LỖI: Xử lý khi bắt được cờ TIMEOUT hoặc lỗi hệ thống từ AiService
+      if (mounted) {
+        // TẮT VÒNG XOAY NGAY LẬP TỨC
+        setState(() => _isProcessing = false);
+
+        String errorMessage = "Lỗi kết nối đến máy chủ AI. Vui lòng thử lại!";
+
+        // Nếu là lỗi Timeout do Server Render đang "ngủ"
+        if (e.toString().contains("TIMEOUT")) {
+          errorMessage =
+              "Server AI đang khởi động (Cold Start). Vui lòng đợi khoảng 30 giây rồi thử chụp lại nhé!";
         }
-      });
 
-      _showResultSheet();
+        // Hiển thị thông báo thân thiện
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.warning_amber_rounded, color: Colors.white),
+                const SizedBox(width: 10),
+                Expanded(child: Text(errorMessage)),
+              ],
+            ),
+            backgroundColor: Colors.orange.shade800,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            margin: const EdgeInsets.all(15),
+            duration: const Duration(seconds: 5),
+          ),
+        );
+
+        // Khởi động lại khung quét để người dùng sẵn sàng chụp lại
+        _resetScanner();
+      }
     }
   }
 
+  // --- 2. HÀM RESET KHUNG QUÉT ---
   void _resetScanner() {
     setState(() {
       _imageFile = null;
@@ -149,6 +191,7 @@ class _CameraAIPageState extends State<CameraAIPage>
     });
   }
 
+  // --- 3. HÀM HIỂN THỊ KẾT QUẢ ---
   void _showResultSheet() {
     showModalBottomSheet(
       context: context,
@@ -244,7 +287,6 @@ class _CameraAIPageState extends State<CameraAIPage>
                     size: 28,
                   ),
                   onPressed: () async {
-                    // 👉 BẮT BUỘC PHẢI CÓ 'async'
                     if (_cameraController != null && _isCameraReady) {
                       try {
                         // 1. Xác định chế độ muốn bật
@@ -385,7 +427,7 @@ class _CameraAIPageState extends State<CameraAIPage>
     );
   }
 
-  // --- CÁC WIDGET PHỤ (Giữ nguyên giao diện đẹp của bạn) ---
+  // --- CÁC WIDGET PHỤ  ---
   Widget _buildScannerOverlay() {
     const double scanBoxSize = 280.0;
     const double laserHeight = 4.0;
