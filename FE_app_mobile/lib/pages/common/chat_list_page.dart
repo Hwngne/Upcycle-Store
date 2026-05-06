@@ -281,11 +281,25 @@ class _ChatListPageState extends State<ChatListPage>
     String lastMsg = chat['lastMessage'] ?? "";
     String time = _formatTime(chat['time']);
     String partnerId = chat['partnerId'] ?? "";
+
+    // 1. Xử lý hiển thị tin nhắn Hình ảnh
     if (lastMsg.contains('/uploads/chat/') ||
         lastMsg.endsWith('.jpg') ||
         lastMsg.endsWith('.png') ||
         lastMsg.endsWith('.jpeg')) {
       lastMsg = "[Hình ảnh]";
+    }
+
+    // 2.  Xử lý hiển thị tin nhắn Đặt hàng (JSON)
+    if (lastMsg.trim().startsWith('{') && lastMsg.contains('"title"')) {
+      try {
+        Map<String, dynamic> orderData = jsonDecode(lastMsg);
+        if (orderData.containsKey('title')) {
+          lastMsg = "Đơn hàng: ${orderData['title']}";
+        }
+      } catch (e) {
+        // Nếu không phải chuỗi JSON hợp lệ thì bỏ qua, giữ nguyên tin nhắn gốc
+      }
     }
 
     // Logic xác định trạng thái

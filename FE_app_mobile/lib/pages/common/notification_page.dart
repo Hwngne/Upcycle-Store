@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'package:intl/intl.dart';
 import '../../services/notification_service.dart';
 import 'package:bot_toast/bot_toast.dart';
@@ -127,8 +128,21 @@ class _NotificationPageState extends State<NotificationPage> {
                   final bool isRead = item['isRead'] ?? false;
                   final String type = item['type'] ?? 'general';
                   final String title = item['title'] ?? 'Thông báo';
-                  final String message = item['message'] ?? '';
+                  String message = item['message'] ?? '';
                   final String time = _formatTime(item['createdAt']);
+
+                  // --- ĐOẠN CODE MỚI: Xử lý chuỗi JSON nếu có ---
+                  if (message.trim().startsWith('{') &&
+                      message.contains('"title"')) {
+                    try {
+                      Map<String, dynamic> orderData = jsonDecode(message);
+                      if (orderData.containsKey('title')) {
+                        message = " Đơn hàng: ${orderData['title']}";
+                      }
+                    } catch (e) {
+                      // Nếu lỗi parse JSON thì giữ nguyên message gốc
+                    }
+                  }
 
                   return Container(
                     margin: const EdgeInsets.only(bottom: 15),

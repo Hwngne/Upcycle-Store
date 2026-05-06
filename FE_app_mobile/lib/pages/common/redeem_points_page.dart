@@ -243,17 +243,26 @@ class _RedeemPointsPageState extends State<RedeemPointsPage> {
     );
   }
 
-  // Widget thẻ quà tặng (Mapping dữ liệu thật)
+  // --- WIDGET THẺ QUÀ TẶNG ---
   Widget _buildGiftCard(dynamic gift) {
-    // Mapping dữ liệu từ MongoDB
     String name = gift['name'] ?? "Quà tặng";
     String imageUrl = gift['imageUrl'] ?? "";
     int point = gift['point'] ?? 0;
     int quantity = gift['quantity'] ?? 0;
     bool isOutOfStock = quantity <= 0;
 
+    // Tách riêng Widget Hình ảnh ra để code gọn hơn
+    Widget imageWidget = Center(
+      child: Image.network(
+        imageUrl,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) =>
+            const Icon(Icons.card_giftcard, size: 50, color: Colors.grey),
+      ),
+    );
+
     return InkWell(
-      onTap: () => _showDetailDialog(gift), // Vẫn cho bấm vào để xem (Tạo FOMO)
+      onTap: () => _showDetailDialog(gift),
       borderRadius: BorderRadius.circular(20),
       child: Container(
         padding: const EdgeInsets.all(10),
@@ -271,47 +280,28 @@ class _RedeemPointsPageState extends State<RedeemPointsPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Ảnh (Dùng Stack để đè chữ HẾT HÀNG lên)
             Expanded(
               flex: 3,
               child: Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: Stack(
                   children: [
-                    // 1. Ảnh Quà (Nếu hết hàng thì làm xám)
-                    ColorFiltered(
-                      colorFilter: isOutOfStock
-                          ? const ColorFilter.mode(
+                    //  Chỉ dùng Filter làm xám khi hết hàng
+                    isOutOfStock
+                        ? ColorFiltered(
+                            colorFilter: const ColorFilter.mode(
                               Colors.grey,
                               BlendMode.saturation,
-                            ) // Trắng đen
-                          : const ColorFilter.mode(
-                              Colors.transparent,
-                              BlendMode.multiply,
-                            ), // Bình thường
-                      child: Center(
-                        // Bọc Center để ảnh nằm giữa
-                        child: Image.network(
-                          imageUrl,
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) =>
-                              const Icon(
-                                Icons.card_giftcard,
-                                size: 50,
-                                color: Colors.grey,
-                              ),
-                        ),
-                      ),
-                    ),
-
-                    // 2. Nhãn "HẾT HÀNG" (Chỉ hiện khi quantity <= 0)
+                            ),
+                            child: imageWidget,
+                          )
+                        : imageWidget, // Bình thường thì để nguyên ảnh gốc
+                    // Nhãn "HẾT HÀNG" đè lên trên ảnh
                     if (isOutOfStock)
                       Positioned.fill(
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(
-                              0.5,
-                            ), // Lớp mờ trắng phủ lên
+                            color: Colors.white.withOpacity(0.5),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Center(
@@ -357,9 +347,7 @@ class _RedeemPointsPageState extends State<RedeemPointsPage> {
                 ),
               ),
             ),
-
             const SizedBox(height: 5),
-
             // Giá điểm
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -392,6 +380,14 @@ class _RedeemPointsPageState extends State<RedeemPointsPage> {
     int quantity = gift['quantity'] ?? 0;
     bool isOutOfStock = quantity <= 0;
 
+    // Tách riêng hình ảnh
+    Widget imageWidget = Image.network(
+      imageUrl,
+      height: 80,
+      errorBuilder: (c, e, s) =>
+          const Icon(Icons.card_giftcard, size: 80, color: Colors.grey),
+    );
+
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -401,24 +397,17 @@ class _RedeemPointsPageState extends State<RedeemPointsPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Ảnh trong popup cũng nên xám nếu hết hàng
-              ColorFiltered(
-                colorFilter: isOutOfStock
-                    ? const ColorFilter.mode(Colors.grey, BlendMode.saturation)
-                    : const ColorFilter.mode(
-                        Colors.transparent,
-                        BlendMode.multiply,
+              // SỬA LỖI TÀNG HÌNH (Popup)
+              isOutOfStock
+                  ? ColorFiltered(
+                      colorFilter: const ColorFilter.mode(
+                        Colors.grey,
+                        BlendMode.saturation,
                       ),
-                child: Image.network(
-                  imageUrl,
-                  height: 80,
-                  errorBuilder: (c, e, s) => const Icon(
-                    Icons.card_giftcard,
-                    size: 80,
-                    color: Colors.grey,
-                  ),
-                ),
-              ),
+                      child: imageWidget,
+                    )
+                  : imageWidget,
+
               const SizedBox(height: 15),
               _buildInfoRow("Quà", name),
               const SizedBox(height: 10),
