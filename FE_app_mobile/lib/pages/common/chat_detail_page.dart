@@ -452,11 +452,11 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
       bool isOrderRequest = widget.productInfo!['isOrderRequest'] ?? false;
 
       if (isOrderRequest) {
-        // LUỒNG MỚI: Đặt mua sản phẩm
+        //  Đặt mua sản phẩm
         Map<String, dynamic> orderData = {
           'title': widget.productInfo!['title'],
           'price': widget.productInfo!['price'],
-          'image': widget.productInfo!['image'], // Đã có sẵn dữ liệu ảnh
+          'image': widget.productInfo!['image'],
           'quantity': widget.productInfo!['orderQuantity'],
           'postId': widget.productInfo!['postId'],
           'status': 'pending',
@@ -920,16 +920,17 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     );
 
     try {
-      // Tính toán tổng tiền an toàn (đề phòng trường hợp null)
+      // Tính toán tổng tiền an toàn
       double totalPrice =
           ((orderData['price'] ?? 0) * (orderData['quantity'] ?? 1)).toDouble();
 
-      // GỌI API THẬT QUA TRANSACTION SERVICE
+      // GỌI API THẬT QUA TRANSACTION SERVICE (ĐÃ CẬP NHẬT)
       bool isSuccess = await TransactionService.confirmTransaction(
         postId: orderData['postId'],
         buyerId: widget.partnerId,
         quantity: orderData['quantity'] ?? 1,
         totalPrice: totalPrice,
+        messageId: msg['_id'],
       );
 
       // Đóng loading
@@ -945,6 +946,13 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
           }
         });
 
+        //Gửi một tin nhắn thông báo tự động qua Socket để màn hình người mua cập nhật ngay lập tức
+        _sendSocketMessage(
+          " Mình đã xác nhận đơn hàng! Bạn kiểm tra nhé,",
+          type: 'text',
+        );
+
+        // Thông báo thành công
         _showCustomSnackBar(
           "Giao dịch thành công! Đã lưu vào Lịch sử.",
           isSuccess: true,
@@ -958,6 +966,44 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     } catch (e) {
       if (mounted) Navigator.pop(context);
       print("Lỗi xác nhận đơn: $e");
+      _showCustomSnackBar("Đã xảy ra lỗi kết nối.", isSuccess: false);
+    }
+  }
+
+  // --- HÀM TỪ CHỐI GIAO DỊCH ---
+  void _cancelOrder(dynamic msg, Map<String, dynamic> orderData) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: Color(0xFFB71C1C)),
+      ),
+    );
+
+    try {
+      bool isSuccess = await TransactionService.cancelTransaction(msg['_id']);
+
+      if (mounted) Navigator.pop(context);
+
+      if (isSuccess) {
+        setState(() {
+          final index = messages.indexWhere((m) => m['_id'] == msg['_id']);
+          if (index != -1) {
+            Map<String, dynamic> updatedData = Map.from(orderData);
+            updatedData['status'] = 'cancelled';
+            messages[index]['content'] = jsonEncode(updatedData);
+          }
+        });
+
+        // Bắn thông báo qua Socket cho người mua biết
+        _sendSocketMessage(" Giao dịch đã bị hủy. Hẹn bạn dịp khác nhé!", type: 'text');
+        
+      } else {
+        _showCustomSnackBar("Từ chối thất bại. Vui lòng thử lại!", isSuccess: false);
+      }
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
+      print("Lỗi hủy đơn: $e");
       _showCustomSnackBar("Đã xảy ra lỗi kết nối.", isSuccess: false);
     }
   }
@@ -1244,36 +1290,58 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                           ),
                           const SizedBox(height: 10),
 
-                          // Nút Xác nhận cho người Bán
+                          // Nút Xác nhận/Từ chối cho người Bán
                           if (!isMe) ...[
                             if (orderData['status'] == 'pending')
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton(
-                                  onPressed: () =>
-                                      _confirmOrder(msg, orderData!),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF059669),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
+                              Row(
+                                children: [
+                                  // NÚT TỪ CHỐI
+                                  Expanded(
+                                    child: ElevatedButton(
+                                      onPressed: () => _cancelOrder(msg, orderData!),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.red.shade600,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        "Từ chối",
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                  child: const Text(
-                                    "Xác nhận đã giao dịch",
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
+                                  const SizedBox(width: 10), // Khoảng cách giữa 2 nút
+                                  // NÚT XÁC NHẬN
+                                  Expanded(
+                                    child: ElevatedButton(
+                                      onPressed: () => _confirmOrder(msg, orderData!),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF059669),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        "Xác nhận",
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                ),
+                                ],
                               )
                             else if (orderData['status'] == 'completed')
                               Container(
                                 width: double.infinity,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 8,
-                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 8),
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
                                   color: Colors.green.shade100,
@@ -1286,8 +1354,27 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
+                              )
+                            // THÊM TRẠNG THÁI TỪ CHỐI CHO NGƯỜI BÁN
+                            else if (orderData['status'] == 'cancelled')
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  " Đã từ chối giao dịch",
+                                  style: TextStyle(
+                                    color: Colors.red.shade800,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ),
                           ] else ...[
+                            // GIAO DIỆN HIỂN THỊ DÀNH CHO NGƯỜI MUA
                             Container(
                               width: double.infinity,
                               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1295,17 +1382,23 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                               decoration: BoxDecoration(
                                 color: orderData['status'] == 'completed'
                                     ? Colors.green.shade100
-                                    : Colors.orange.shade50,
+                                    : (orderData['status'] == 'cancelled'
+                                        ? Colors.red.shade50
+                                        : Colors.orange.shade50),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
                                 orderData['status'] == 'completed'
-                                    ? "✅ Giao dịch hoàn tất"
-                                    : "⏳ Đang chờ người bán xác nhận",
+                                    ? " Giao dịch hoàn tất"
+                                    : (orderData['status'] == 'cancelled'
+                                        ? " Đơn hàng đã bị từ chối"
+                                        : "⏳ Đang chờ người bán xác nhận"),
                                 style: TextStyle(
                                   color: orderData['status'] == 'completed'
                                       ? Colors.green
-                                      : Colors.orange.shade800,
+                                      : (orderData['status'] == 'cancelled'
+                                          ? Colors.red.shade800
+                                          : Colors.orange.shade800),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
                                 ),

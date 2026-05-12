@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
-import 'api_constrants.dart'; 
+import 'api_constrants.dart';
 
 const String baseUrl = '${ApiConstants.baseUrl}/transactions';
 
@@ -12,6 +12,7 @@ class TransactionService {
     required String buyerId,
     required int quantity,
     required double totalPrice,
+    required String messageId,
   }) async {
     try {
       final token = await AuthService.getToken();
@@ -26,6 +27,7 @@ class TransactionService {
           'buyerId': buyerId,
           'quantity': quantity,
           'totalPrice': totalPrice,
+          'messageId': messageId,
         }),
       );
 
@@ -45,7 +47,7 @@ class TransactionService {
     try {
       final token = await AuthService.getToken();
       final response = await http.get(
-        Uri.parse('$baseUrl/history/$userId'), 
+        Uri.parse('$baseUrl/history/$userId'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -55,11 +57,37 @@ class TransactionService {
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
-        throw Exception("Failed to load transactions. Status code: ${response.statusCode}");
+        throw Exception(
+          "Failed to load transactions. Status code: ${response.statusCode}",
+        );
       }
     } catch (e) {
       print("Lỗi khi tải lịch sử giao dịch: $e");
       return [];
+    }
+  }
+
+  // 3. GỌI API ĐỂ NGƯỜI BÁN TỪ CHỐI ĐƠN HÀNG
+  static Future<bool> cancelTransaction(String messageId) async {
+    try {
+      final token = await AuthService.getToken();
+      final response = await http.post(
+        Uri.parse('$baseUrl/cancel'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'messageId': messageId}),
+      );
+
+      print("Status Code Từ Chối Đơn: ${response.statusCode}");
+      if (response.statusCode == 200) {
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print("Lỗi khi từ chối giao dịch: $e");
+      return false;
     }
   }
 }
