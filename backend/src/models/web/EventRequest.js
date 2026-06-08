@@ -15,7 +15,6 @@ const eventRequestSchema = new mongoose.Schema(
     endTime: { type: String },   
 
     isPaid: { type: Boolean, default: false },
-    
     price: { type: mongoose.Schema.Types.Mixed, default: 0 }, 
 
     // --- Thông tin liên hệ ---
@@ -23,6 +22,19 @@ const eventRequestSchema = new mongoose.Schema(
     contactEmail: { type: String },
     contactPhone: { type: String },
     formLink: { type: String },
+
+    // ==========================================
+    // CÁC TRƯỜNG BỔ SUNG CHO TÍNH NĂNG ĐĂNG KÝ
+    // ==========================================
+    registrationDeadline: { type: Date }, // Hạn chót đăng ký
+    participants: [
+      {
+        studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        registeredAt: { type: Date, default: Date.now },
+        checkInStatus: { type: String, enum: ['registered', 'attended'], default: 'registered' },
+        checkInAt: { type: Date }
+      }
+    ],
 
     // --- File & Hình ảnh ---
     bannerUrl: { type: String, default: "" },
@@ -51,7 +63,6 @@ const eventRequestSchema = new mongoose.Schema(
     // --- Thông tin người tạo ---
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
-     
       ref: "User", 
       required: true
     },
@@ -59,6 +70,5 @@ const eventRequestSchema = new mongoose.Schema(
   { timestamps: true, versionKey: false }
 );
 
-// Thần chú chống lỗi Overwrite của Mongoose
 const EventRequest = mongoose.models.EventRequest || mongoose.model("EventRequest", eventRequestSchema);
 export default EventRequest;

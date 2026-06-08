@@ -37,16 +37,20 @@ const getDatesInRange = (startDate, endDate) => {
     return dates;
 };
 
-// 1. TẠO YÊU CẦU SỰ KIỆN
+// 1. TẠO YÊU CẦU SỰ KIỆN (Đã cập nhật để khớp với App Flutter mới)
 export const createEventRequest = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.id || req.user._id; 
     let {
-      name, topic, description, isPaid, price,
-      location, date, startTime, endTime,
-      contactName, contactEmail, contactPhone, formLink,
+      title, // Flutter gửi lên là title
+      topic, description, isPaid, price,
+      location, eventDate, registrationDeadline, 
+      contactName, contactEmail, contactPhone, 
       promotionLocations, promotionStartDate, promotionEndDate
     } = req.body;
+
+    // Chuyển isPaid từ chuỗi sang boolean
+    const isPaidBool = isPaid === 'true' || isPaid === true;
 
     if (typeof promotionLocations === 'string') {
         try {
@@ -61,10 +65,10 @@ export const createEventRequest = async (req, res) => {
 
     if (req.files) {
         if (req.files['banner'] && req.files['banner'][0]) {
-            bannerUrl = req.files['banner'][0].path; 
+            bannerUrl = req.files['banner'][0].path.replace(/\\/g, "/"); 
         }
         if (req.files['attachment'] && req.files['attachment'][0]) {
-            attachmentUrl = req.files['attachment'][0].path;
+            attachmentUrl = req.files['attachment'][0].path.replace(/\\/g, "/");
         }
     }
 
@@ -93,14 +97,35 @@ export const createEventRequest = async (req, res) => {
     user.total_points = newTotalPoints;
     await user.save();
     
-    // --- TẠO DB ---
+    // Xử lý tách eventDate (ISO String) ra ngày/giờ cho Admin Web không bị lỗi
+    let dateStr = "";
+    let startTimeStr = "";
+    let endTimeStr = "";
+    if (eventDate) {
+      const d = new Date(eventDate);
+      dateStr = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
+      startTimeStr = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+      endTimeStr = "23:59"; 
+    }
+
     const hasPromotion = promotionLocations && promotionLocations.length > 0;
+    
+    // --- TẠO DB ---
     const newRequest = await EventRequest.create({
       createdBy: userId,
-      name, topic, description,
-      isPaid, price: price ? price.toString() : "Miễn phí",
-      location, date, startTime, endTime,
-      contactName, contactEmail, contactPhone, formLink,
+      name: title || req.body.name, // Giữ lại name cho Admin Web đọc
+      topic, description,
+      isPaid: isPaidBool, 
+      price: price ? price.toString() : "Miễn phí",
+      location, 
+      date: dateStr || req.body.date, 
+      startTime: startTimeStr || req.body.startTime, 
+      endTime: endTimeStr || req.body.endTime,
+      eventDate: eventDate, 
+      registrationDeadline: registrationDeadline, // LƯU HẠN CHÓT MỚI
+      participants: [], 
+      contactName, contactEmail, contactPhone, 
+      formLink: "", // Không dùng nữa nhưng giữ rỗng để không lỗi Web
       bannerUrl, attachmentUrl,
       promotionLocations: promotionLocations || [],
       promotionStartDate: promotionStartDate || "",
@@ -114,6 +139,37 @@ export const createEventRequest = async (req, res) => {
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: "Lỗi server: " + error.message });
+  }
+};
+
+// --- THÊM HÀM ĐĂNG KÝ  ---
+export const registerEvent = async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const studentId = req.user.id || req.user._id;
+
+    const event = await EventRequest.findById(eventId);
+    if (!event) return res.status(404).json({ message: "Sự kiện không tồn tại." });
+
+    if (event.registrationDeadline && new Date() > new Date(event.registrationDeadline)) {
+      return res.status(400).json({ message: "Sự kiện đã đóng đăng ký." });
+    }
+
+    const isAlreadyRegistered = event.participants.some(
+      (p) => p.studentId.toString() === studentId.toString()
+    );
+
+    if (isAlreadyRegistered) {
+      return res.status(400).json({ message: "Bạn đã đăng ký sự kiện này rồi." });
+    }
+
+    event.participants.push({ studentId, registeredAt: new Date(), checkInStatus: 'registered' });
+    await event.save();
+
+    res.status(200).json({ success: true, message: "Đăng ký thành công!" });
+  } catch (error) {
+    console.error("Lỗi đăng ký:", error);
+    res.status(500).json({ message: "Lỗi server." });
   }
 };
 

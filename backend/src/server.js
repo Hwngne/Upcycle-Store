@@ -49,7 +49,6 @@ import mobileConfigRouter from './routes/mobile/configRoutes.js';
 import mobileChatRoutes from './routes/mobile/chatRoutes.js'; 
 import mobileNotificationRoutes from './routes/mobile/notificationRoutes.js';
 import mobileOrderRoutes from './routes/mobile/orderRoutes.js';
-import mobileEventRoutes from './routes/mobile/eventRoutes.js';
 
 // --- 5. IMPORT MIDDLEWARES ---
 import { authenticate } from "./middlewares/auth.js";
@@ -250,7 +249,6 @@ app.use('/api/mobile/config', mobileConfigRouter);
 app.use('/api/mobile/chat', mobileChatRoutes); 
 app.use('/api/mobile/notifications', mobileNotificationRoutes);
 app.use('/api/mobile/transactions', mobileOrderRoutes);
-app.use('/api/mobile/events', mobileEventRoutes);
 
 // Xử lý lỗi toàn cục
 app.use(errorHandler);
