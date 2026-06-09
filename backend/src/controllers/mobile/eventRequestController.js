@@ -2,7 +2,7 @@ import EventRequest from '../../models/web/EventRequest.js';
 import User from '../../models/mobile/userModel.js';
 import Post from '../../models/mobile/postModel.js'; 
 import jsQR from 'jsqr';
-import Jimp from 'jimp';
+import * as Jimp from 'jimp';
 
 const POINTS_REWARD_CREATE = 100; 
 const POINTS_COST_PER_DAY = 100; 
@@ -431,7 +431,6 @@ export const checkInWithQRImage = async (req, res) => {
     const [eventId, studentId] = parts;
 
     // 5. Tìm sự kiện và kiểm tra danh sách
-    // Populate để lấy tên sinh viên hiển thị lên app cho đẹp
     const event = await EventRequest.findById(eventId).populate('participants.studentId', 'student_name');
     
     if (!event) {
