@@ -9,6 +9,7 @@ import '../../services/auth_service.dart';
 import '../../services/user_service.dart';
 import '../auth/splash_page.dart';
 import '../club/event_management.dart';
+import '../student/my_event_ticket_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -223,11 +224,16 @@ class _ProfilePageState extends State<ProfilePage>
                         "Săn điểm tích lũy",
                         Icons.arrow_forward_ios,
                       ),
-                      _buildMenuItem(
-                        context,
-                        "Xóa tài khoản",
-                        Icons.arrow_forward_ios,
-                      ),
+                      if (role == 'student')
+                        _buildMenuItem(
+                          context,
+                          "Vé sự kiện của tôi", 
+                          Icons.qr_code, 
+                          textColor: const Color(
+                            0xFF1565C0,
+                          ), // Màu xanh dương đậm
+                          iconColor: const Color(0xFF1565C0),
+                        ),
                     ],
                   ),
                 ),
@@ -287,9 +293,10 @@ class _ProfilePageState extends State<ProfilePage>
             context,
             MaterialPageRoute(builder: (context) => const EarnPointsPage()),
           );
-        } else if (title == "Xóa tài khoản") {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Tính năng đang phát triển")),
+        } else if (title == "Vé sự kiện của tôi") {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const MyEventTicketsPage()),
           );
         } else if (isLogout) {
           bool? confirm = await showDialog(

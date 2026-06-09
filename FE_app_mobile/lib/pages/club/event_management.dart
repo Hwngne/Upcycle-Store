@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/event_service.dart';
 import 'event_detail_page.dart';
+import 'participants_list_page.dart';
 
 class EventManagementPage extends StatefulWidget {
   const EventManagementPage({super.key});
@@ -283,6 +284,8 @@ class _EventManagementPageState extends State<EventManagementPage> {
   }
 
   Widget _buildEventCard(Map<String, dynamic> event) {
+    final List participants = event['participants'] ?? [];
+    final int regCount = participants.length;
     final statusInfo = _getStatusDisplay(event['status']);
 
     String priceText = "Miễn phí";
@@ -351,6 +354,7 @@ class _EventManagementPageState extends State<EventManagementPage> {
           'promotionEndDate': event['promotionEndDate'] ?? "",
           'bannerUrl': event['bannerUrl'] ?? "",
           'attachmentUrl': event['attachmentUrl'] ?? "",
+          'participants': event['participants'],
         };
 
         Navigator.push(
@@ -384,6 +388,40 @@ class _EventManagementPageState extends State<EventManagementPage> {
               event['name'] ?? "Không tên",
               isBold: true,
             ),
+
+            _buildInfoRow(
+              "Đã đăng ký",
+              "$regCount sinh viên",
+              color: Colors.blue,
+              isBold: true,
+              trailing: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Icon(
+                  Icons.arrow_forward_ios,
+                  size: 14,
+                  color: Colors.blue,
+                ),
+              ),
+              onTap: () {
+                final String safeEventId = event['_id'] is Map
+                    ? event['_id']['\$oid']
+                    : event['_id'].toString();
+
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ParticipantsListPage(
+                      eventId: safeEventId,
+                      eventTitle: event['name'] ?? "Danh sách sinh viên",
+                    ),
+                  ),
+                );
+              },
+            ),
             _buildInfoRow(
               "Trạng thái",
               statusInfo['text'],
@@ -409,33 +447,44 @@ class _EventManagementPageState extends State<EventManagementPage> {
     String value, {
     bool isBold = false,
     Color? color,
+    Widget? trailing,
+    VoidCallback? onTap,
   }) {
+    Widget rowContent = Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: 100,
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
+              color: color ?? Colors.black87,
+            ),
+          ),
+        ),
+        if (trailing != null) trailing,
+      ],
+    );
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              label,
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
-                color: color ?? Colors.black87,
-              ),
-            ),
-          ),
-        ],
-      ),
+      child: onTap != null
+          ? GestureDetector(
+              onTap: onTap,
+              behavior: HitTestBehavior.opaque,
+              child: rowContent,
+            )
+          : rowContent,
     );
   }
 }

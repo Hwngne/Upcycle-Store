@@ -8,6 +8,7 @@ import 'api_constrants.dart';
 class EventService {
   static String get baseUrl => "${ApiConstants.baseUrl}/event-requests";
   static String get configUrl => "${ApiConstants.baseUrl}/config";
+  static String get newClubEventUrl => "${ApiConstants.baseUrl}/events";
 
   static Future<Map<String, String>> _getHeaders() async {
     final token = await AuthService.getToken();
@@ -25,9 +26,13 @@ class EventService {
   ) async {
     try {
       final token = await AuthService.getToken();
+
+      // SỬ DỤNG ĐƯỜNG DẪN MỚI TẠI ĐÂY
       final uri = Uri.parse('$baseUrl/create');
+
       var request = http.MultipartRequest('POST', uri);
       request.headers['Authorization'] = 'Bearer $token';
+
       eventData.forEach((key, value) {
         if (value != null) {
           if (value is List) {
@@ -72,11 +77,11 @@ class EventService {
       if (response.statusCode == 201 || response.statusCode == 200) {
         return true;
       } else {
-        print("❌ Lỗi Server trả về: ${response.body}");
+        print(" Lỗi Server trả về: ${response.body}");
         return false;
       }
     } catch (e) {
-      print("❌ Lỗi mạng hoặc kết nối: $e");
+      print(" Lỗi mạng hoặc kết nối: $e");
       return false;
     }
   }
@@ -161,6 +166,106 @@ class EventService {
       return [];
     } catch (e) {
       print("Lỗi lấy banner: $e");
+      return [];
+    }
+  }
+
+  // --- HÀM ĐĂNG KÝ SỰ KIỆN ---
+  static Future<bool> registerEvent(String eventId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/$eventId/register'),
+        headers: await _getHeaders(),
+      );
+
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      print("Lỗi đăng ký: $e");
+      return false;
+    }
+  }
+
+  // --- HÀM LẤY DANH SÁCH SINH VIÊN ĐĂNG KÝ SỰ KIỆN ---
+  static Future<List<dynamic>> getEventParticipants(String eventId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/$eventId/participants'),
+        headers: await _getHeaders(),
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        if (responseData['success'] == true) {
+          return responseData['data']; // Trả về mảng danh sách sinh viên
+        }
+      }
+      throw Exception('Failed to load participants');
+    } catch (e) {
+      print('Error in getEventParticipants: $e');
+      return []; // Trả về mảng rỗng nếu lỗi
+    }
+  }
+
+  // --- HÀM GỬI ẢNH QR LÊN BACKEND ĐỂ ĐIỂM DANH ---
+  static Future<Map<String, dynamic>> checkInWithQRImage(
+    XFile imageFile,
+  ) async {
+    try {
+      final token = await AuthService.getToken();
+
+      // Trỏ đến endpoint vừa tạo ở Backend
+      final uri = Uri.parse('$baseUrl/check-in-qr');
+
+      var request = http.MultipartRequest('POST', uri);
+      request.headers['Authorization'] = 'Bearer $token';
+
+      // Đính kèm file ảnh với key là 'qrImage' khớp với multer ở Backend
+      var multipartFile = await http.MultipartFile.fromPath(
+        'qrImage',
+        imageFile.path,
+      );
+      request.files.add(multipartFile);
+
+      // Gửi request
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      // Xử lý kết quả trả về
+      if (response.statusCode == 200 ||
+          response.statusCode == 400 ||
+          response.statusCode == 404) {
+        // Dùng utf8.decode để đảm bảo Tiếng Việt (tên sinh viên) không bị lỗi font
+        final responseBody = utf8.decode(response.bodyBytes);
+        return jsonDecode(responseBody);
+      } else {
+        return {
+          "success": false,
+          "message": "Lỗi máy chủ (${response.statusCode})",
+        };
+      }
+    } catch (e) {
+      print("Lỗi checkInWithQRImage: $e");
+      return {"success": false, "message": "Lỗi kết nối mạng hoặc timeout."};
+    }
+  }
+
+  // --- HÀM LẤY DANH SÁCH SỰ KIỆN MÀ TÔI ĐÃ ĐĂNG KÝ ---
+  static Future<List<dynamic>> getMyRegisteredEvents() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/my-tickets'),
+        headers: await _getHeaders(),
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        if (responseData['success'] == true) {
+          return responseData['data'];
+        }
+      }
+      return [];
+    } catch (e) {
+      print('Lỗi getMyRegisteredEvents: $e');
       return [];
     }
   }

@@ -30,18 +30,23 @@ class _CreateEventPageState extends State<CreateEventPage> {
   final _contactNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _formLinkController = TextEditingController();
   final _attachmentLinkController = TextEditingController();
 
   // --- BIẾN FILE/ẢNH ---
   XFile? _selectedImage;
   PlatformFile? _selectedFile;
 
-  // --- BIẾN NGÀY GIỜ ---
+  // --- BIẾN NGÀY GIỜ SỰ KIỆN ---
   String _selectedDate = "";
   DateTime? _eventDateObj;
   String _startTime = "";
   String _endTime = "";
+
+  // --- THÊM MỚI: BIẾN HẠN CHÓT ĐĂNG KÝ ---
+  String _selectedDeadlineDate = "";
+  DateTime? _deadlineDateObj;
+  String _deadlineTime = "";
+
   List<String> _topicList = [];
   String? _selectedTopic;
   bool _isLoadingTopics = true;
@@ -65,11 +70,21 @@ class _CreateEventPageState extends State<CreateEventPage> {
     return DateTime(date.year, date.month, date.day);
   }
 
-  // --- VALIDATE  ---
-  bool _isValidUrl(String url) {
-    return Uri.tryParse(url)?.hasAbsolutePath ?? false;
+  // Hàm phụ trợ gộp Ngày và Giờ thành 1 object DateTime hoàn chỉnh để so sánh và gửi Server
+  DateTime? _combineDateTime(DateTime? date, String timeStr) {
+    if (date == null || timeStr.isEmpty) return null;
+    final parts = timeStr.split(':');
+    if (parts.length != 2) return null;
+    return DateTime(
+      date.year,
+      date.month,
+      date.day,
+      int.parse(parts[0]),
+      int.parse(parts[1]),
+    );
   }
 
+  // --- VALIDATE  ---
   bool _validateInputs() {
     // 1. Kiểm tra các trường bắt buộc
     if (_nameController.text.isEmpty ||
@@ -82,18 +97,36 @@ class _CreateEventPageState extends State<CreateEventPage> {
         _contactNameController.text.isEmpty ||
         _emailController.text.isEmpty ||
         _phoneController.text.isEmpty ||
-        _formLinkController.text.isEmpty) {
+        _selectedDeadlineDate.isEmpty || // Kiểm tra Hạn chót
+        _deadlineTime.isEmpty) {
       _showSnackBar("Vui lòng điền đầy đủ thông tin bắt buộc (*)", Colors.red);
       return false;
     }
 
-    // 2. Kiểm tra giá vé
+    // 2. Kiểm tra logic: Hạn chót phải trước khi sự kiện diễn ra
+    DateTime? eventFullDate = _combineDateTime(_eventDateObj, _startTime);
+    DateTime? deadlineFullDate = _combineDateTime(
+      _deadlineDateObj,
+      _deadlineTime,
+    );
+
+    if (eventFullDate != null && deadlineFullDate != null) {
+      if (deadlineFullDate.isAfter(eventFullDate)) {
+        _showSnackBar(
+          "Hạn chót đăng ký phải TRƯỚC thời gian diễn ra sự kiện!",
+          Colors.orange,
+        );
+        return false;
+      }
+    }
+
+    // 3. Kiểm tra giá vé
     if (_isPaid && _priceController.text.isEmpty) {
       _showSnackBar("Vui lòng nhập giá vé", Colors.red);
       return false;
     }
 
-    // 3. Kiểm tra độ dài số điện thoại
+    // 4. Kiểm tra độ dài số điện thoại
     String phone = _phoneController.text.trim();
     if (phone.length < 10 || phone.length > 11) {
       _showSnackBar(
@@ -103,22 +136,48 @@ class _CreateEventPageState extends State<CreateEventPage> {
       return false;
     }
 
-    // 4. Kiểm tra định dạng URL Form
-    if (!_isValidUrl(_formLinkController.text.trim())) {
-      _showSnackBar(
-        "Link form không hợp lệ (Phải có http:// hoặc https://)",
-        Colors.orange,
-      );
-      return false;
-    }
-
     return true;
   }
 
   void _showSnackBar(String msg, Color color) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(msg), backgroundColor: color));
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Container(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            children: [
+              Icon(
+                color == Colors.red || color == Colors.orange
+                    ? Icons
+                          .error_outline_rounded // Icon cảnh báo nếu lỗi
+                    : Icons
+                          .check_circle_outline_rounded, // Icon check nếu thành công
+                color: Colors.white,
+                size: 28,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  msg,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        margin: const EdgeInsets.only(bottom: 20, left: 20, right: 20),
+        elevation: 6, // Bóng đổ
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   Future<void> _fetchTopics() async {
@@ -135,7 +194,6 @@ class _CreateEventPageState extends State<CreateEventPage> {
   Future<void> _handleCreateEvent() async {
     if (!_validateInputs()) return;
 
-    // Hiện loading
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -144,26 +202,34 @@ class _CreateEventPageState extends State<CreateEventPage> {
       ),
     );
 
-    // Chuẩn bị dữ liệu quảng bá
     List<String> promoLocs = [];
     if (_promoHome) promoLocs.add("home");
     if (_promoForum) promoLocs.add("forum");
     DateFormat fmt = DateFormat('dd/MM/yyyy');
 
+    // Chuyển Hạn chót và Ngày sự kiện thành chuẩn ISO để gửi lên Node.js
+    DateTime? deadlineFullDate = _combineDateTime(
+      _deadlineDateObj,
+      _deadlineTime,
+    );
+    DateTime? eventFullDate = _combineDateTime(_eventDateObj, _startTime);
+
     final Map<String, dynamic> eventData = {
-      'name': _nameController.text.trim(),
+      'title': _nameController.text.trim(),
       'topic': _selectedTopic,
       'description': _descController.text.trim(),
       'isPaid': _isPaid,
       'price': _isPaid ? _priceController.text : "Miễn phí",
       'location': _locationController.text.trim(),
-      'date': _selectedDate,
-      'startTime': _startTime,
-      'endTime': _endTime,
+
+      // THAY ĐỔI: Định dạng Date chuẩn gửi server
+      'eventDate': eventFullDate?.toIso8601String() ?? "",
+      'registrationDeadline':
+          deadlineFullDate?.toIso8601String() ?? "", // Gửi hạn chót
+
       'contactName': _contactNameController.text.trim(),
       'contactEmail': _emailController.text.trim(),
       'contactPhone': _phoneController.text.trim(),
-      'formLink': _formLinkController.text.trim(),
       'bannerUrl': _selectedImage?.path ?? "",
       'attachmentUrl': _attachmentLinkController.text.trim(),
       'promotionLocations': promoLocs,
@@ -172,9 +238,9 @@ class _CreateEventPageState extends State<CreateEventPage> {
     };
 
     bool success = await EventService.createEvent(
-      eventData, // Dữ liệu text
-      _selectedImage, // Biến XFile ảnh banner
-      _selectedFile, // Biến PlatformFile đính kèm
+      eventData,
+      _selectedImage,
+      _selectedFile,
     );
 
     if (!mounted) return;
@@ -281,6 +347,7 @@ class _CreateEventPageState extends State<CreateEventPage> {
     }
   }
 
+  // Pick ngày sự kiện
   Future<void> _pickDate() async {
     DateTime? picked = await showDatePicker(
       context: context,
@@ -298,10 +365,35 @@ class _CreateEventPageState extends State<CreateEventPage> {
     if (picked != null) {
       setState(() {
         _eventDateObj = picked;
-        _selectedDate = "${picked.day}/${picked.month}/${picked.year}";
+        _selectedDate =
+            "${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}";
 
         _promoStart = picked;
         _promoEnd = picked.add(const Duration(days: 3));
+      });
+    }
+  }
+
+  // THÊM MỚI: Pick Ngày Hạn chót
+  Future<void> _pickDeadlineDate() async {
+    DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2030),
+      builder: (context, child) => Theme(
+        data: ThemeData.light().copyWith(
+          primaryColor: const Color(0xFFB71C1C),
+          colorScheme: const ColorScheme.light(primary: Color(0xFFB71C1C)),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() {
+        _deadlineDateObj = picked;
+        _selectedDeadlineDate =
+            "${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}";
       });
     }
   }
@@ -321,6 +413,7 @@ class _CreateEventPageState extends State<CreateEventPage> {
     );
   }
 
+  // Pick Giờ sự kiện
   Future<void> _pickTime(bool isStart) async {
     TimeOfDay? picked = await showTimePicker(
       context: context,
@@ -349,6 +442,33 @@ class _CreateEventPageState extends State<CreateEventPage> {
         String formattedTime =
             "${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}";
         isStart ? _startTime = formattedTime : _endTime = formattedTime;
+      });
+    }
+  }
+
+  // THÊM MỚI: Pick Giờ Hạn chót
+  Future<void> _pickDeadlineTime() async {
+    TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+      initialEntryMode: TimePickerEntryMode.input,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFFB71C1C),
+              onPrimary: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() {
+        _deadlineTime =
+            "${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}";
       });
     }
   }
@@ -553,7 +673,7 @@ class _CreateEventPageState extends State<CreateEventPage> {
                               ),
                             ),
 
-                            _buildLabel("Thời gian", isRequired: true),
+                            _buildLabel("Thời gian diễn ra", isRequired: true),
                             Row(
                               children: [
                                 Expanded(
@@ -827,28 +947,59 @@ class _CreateEventPageState extends State<CreateEventPage> {
                             const Divider(),
                             const SizedBox(height: 10),
 
-                            _buildSectionTitle("Thông tin liên hệ"),
+                            _buildSectionTitle("Thông tin đăng ký"),
                             const SizedBox(height: 15),
+
+                            // GIAO DIỆN HẠN CHÓT ĐĂNG KÝ
+                            _buildLabel("Hạn chót đăng ký", isRequired: true),
+                            Row(
+                              children: [
+                                Expanded(
+                                  flex: 3,
+                                  child: GestureDetector(
+                                    onTap: _pickDeadlineDate,
+                                    child: _buildTextField(
+                                      hint: _selectedDeadlineDate.isEmpty
+                                          ? "Ngày (dd/mm/yyyy)"
+                                          : _selectedDeadlineDate,
+                                      enabled: false,
+                                      icon: Icons.calendar_month,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  flex: 2,
+                                  child: GestureDetector(
+                                    onTap: _pickDeadlineTime,
+                                    child: _buildTextField(
+                                      hint: _deadlineTime.isEmpty
+                                          ? "Giờ (--:--)"
+                                          : _deadlineTime,
+                                      enabled: false,
+                                      icon: Icons.timer_outlined,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 20),
                             _buildLabel("Người phụ trách", isRequired: true),
                             _buildTextField(
                               hint: "Họ tên",
                               controller: _contactNameController,
                             ),
-                            _buildLabel("Email", isRequired: true),
+                            _buildLabel("Email hỗ trợ", isRequired: true),
                             _buildTextField(
                               hint: "email@domain.com",
                               controller: _emailController,
                             ),
-                            _buildLabel("Sđt", isRequired: true),
+                            _buildLabel("Sđt hỗ trợ", isRequired: true),
                             _buildTextField(
                               hint: "Số điện thoại",
                               controller: _phoneController,
                               keyboardType: TextInputType.phone,
-                            ),
-                            _buildLabel("Form đăng ký", isRequired: true),
-                            _buildTextField(
-                              hint: "https://example.com/form",
-                              controller: _formLinkController,
                             ),
 
                             const SizedBox(height: 30),
@@ -1182,16 +1333,10 @@ class _CreateEventPageState extends State<CreateEventPage> {
                           ],
                         ),
                         const SizedBox(height: 10),
-                        const Text(
-                          "Đăng ký:",
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          _formLinkController.text,
-                          style: const TextStyle(
-                            color: Colors.blue,
-                            decoration: TextDecoration.underline,
-                          ),
+                        // THAY ĐỔI: HIỂN THỊ HẠN CHÓT TRÊN PREVIEW
+                        _buildPreviewInfo(
+                          "Hạn chót đăng ký:",
+                          "$_deadlineTime ngày $_selectedDeadlineDate",
                         ),
                       ],
                     ),

@@ -3,7 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+
+// ĐẢM BẢO IMPORT ĐÚNG ĐƯỜNG DẪN CÁC DỊCH VỤ CỦA BẠN
 import '../../services/ai_service.dart';
+import '../../services/event_service.dart';
+import '../../services/user_service.dart'; // Nơi chứa class UserData
 
 class CameraAIPage extends StatefulWidget {
   const CameraAIPage({super.key});
@@ -14,6 +18,9 @@ class CameraAIPage extends StatefulWidget {
 
 class _CameraAIPageState extends State<CameraAIPage>
     with SingleTickerProviderStateMixin {
+  // BIẾN KIỂM SOÁT LUỒNG: false = Phân loại rác (Mặc định), true = Điểm danh QR
+  bool _isQrMode = false;
+
   // --- CÁC BIẾN CHO CAMERA LIVE VIEW ---
   CameraController? _cameraController;
   Future<void>? _initializeControllerFuture;
@@ -23,7 +30,10 @@ class _CameraAIPageState extends State<CameraAIPage>
   XFile? _imageFile;
   bool _isProcessing = false;
   bool _isTakingPicture = false;
-  Map<String, dynamic>? _resultData;
+
+  // Lưu kết quả xử lý
+  Map<String, dynamic>? _wasteResultData; // Data khi quét rác
+  Map<String, dynamic>? _qrResultData; // Data khi quét QR
 
   late AnimationController _scanController;
   final ImagePicker _picker = ImagePicker();
@@ -31,7 +41,6 @@ class _CameraAIPageState extends State<CameraAIPage>
   @override
   void initState() {
     super.initState();
-    // 1. KHỞI TẠO CAMERA NGAY KHI VÀO TRANG
     _initializeCamera();
 
     _scanController = AnimationController(
@@ -40,27 +49,22 @@ class _CameraAIPageState extends State<CameraAIPage>
     )..repeat(reverse: true);
   }
 
-  // --- HÀM KHỞI TẠO CAMERA PHẦN CỨNG ---
   Future<void> _initializeCamera() async {
     try {
-      // 1. Lấy danh sách các camera khả dụng (trước, sau)
       final cameras = await availableCameras();
       if (cameras.isEmpty) {
-        print(" Không tìm thấy camera nào trên thiết bị.");
+        print("Không tìm thấy camera nào trên thiết bị.");
         return;
       }
 
-      // 2. Khởi tạo controller với camera sau (cameras.first)
       _cameraController = CameraController(
         cameras.first,
         ResolutionPreset.medium,
         enableAudio: false,
       );
 
-      // 3. Bắt đầu khởi tạo controller
       _initializeControllerFuture = _cameraController!.initialize();
 
-      // 4. Chờ khởi tạo xong và cập nhật giao diện
       await _initializeControllerFuture;
       if (mounted) {
         setState(() {
@@ -68,7 +72,7 @@ class _CameraAIPageState extends State<CameraAIPage>
         });
       }
     } catch (e) {
-      print(" Lỗi khởi tạo hardware camera: $e");
+      print("Lỗi khởi tạo hardware camera: $e");
     }
   }
 
@@ -79,7 +83,7 @@ class _CameraAIPageState extends State<CameraAIPage>
     super.dispose();
   }
 
-  // --- HÀM CHỤP ẢNH  ---
+  // --- HÀM CHỤP ẢNH CHUNG ---
   Future<void> _handleTakePicture(ImageSource source) async {
     if (_isTakingPicture || _isProcessing) return;
 
@@ -87,14 +91,10 @@ class _CameraAIPageState extends State<CameraAIPage>
 
     try {
       if (source == ImageSource.camera) {
-        // --- CHỤP TỪ LIVE VIEW ---
         if (!_isCameraReady || _cameraController == null) return;
         setState(() => _isTakingPicture = true);
-
-        // Chụp ảnh thực tế
         pickedFile = await _cameraController!.takePicture();
       } else {
-        // --- CHỌN TỪ THƯ VIỆN (Dùng ImagePicker cũ) ---
         setState(() => _isTakingPicture = true);
         pickedFile = await _picker.pickImage(source: ImageSource.gallery);
       }
@@ -102,13 +102,19 @@ class _CameraAIPageState extends State<CameraAIPage>
       if (pickedFile != null) {
         setState(() {
           _imageFile = pickedFile;
-          _resultData = null;
+          _wasteResultData = null;
+          _qrResultData = null;
         });
-        // Sau khi chụp xong thì gửi ảnh sang AI
-        _analyzeWaste();
+
+        // KIỂM TRA ĐANG Ở TAB NÀO ĐỂ GỌI API TƯƠNG ỨNG
+        if (_isQrMode) {
+          _processQRCode();
+        } else {
+          _analyzeWaste();
+        }
       }
     } catch (e) {
-      print(" Lỗi khi lấy ảnh: $e");
+      print("Lỗi khi lấy ảnh: $e");
     } finally {
       if (mounted) {
         setState(() => _isTakingPicture = false);
@@ -116,82 +122,88 @@ class _CameraAIPageState extends State<CameraAIPage>
     }
   }
 
-  // --- 1. HÀM GỬI ẢNH SANG AI SERVICE ---
+  // ==========================================
+  // LUỒNG 1: XỬ LÝ AI RÁC THẢI
+  // ==========================================
   Future<void> _analyzeWaste() async {
     setState(() => _isProcessing = true);
-
     try {
       final result = await AiService.scanWaste(_imageFile!);
-
       if (mounted) {
         setState(() {
           _isProcessing = false;
           if (result != null) {
-            _resultData = result;
+            _wasteResultData = result;
           } else {
-            // Trường hợp Server AI trả lời nhưng không nhận diện được vật thể
-            _resultData = {
+            _wasteResultData = {
               "itemName": "Không nhận diện được",
               "category": "Chưa rõ",
               "confidence": 0.0,
               "suggestion":
-                  "Vui lòng chụp lại ở nơi đủ sáng hoặc thử một góc chụp khác rõ nét hơn.",
+                  "Vui lòng chụp lại ở nơi đủ sáng hoặc thử góc khác.",
               "points": 0,
             };
           }
         });
-
         _showResultSheet();
       }
     } catch (e) {
-      // BẮT LỖI: Xử lý khi bắt được cờ TIMEOUT hoặc lỗi hệ thống từ AiService
       if (mounted) {
-        // TẮT VÒNG XOAY NGAY LẬP TỨC
         setState(() => _isProcessing = false);
-
-        String errorMessage = "Lỗi kết nối đến máy chủ AI. Vui lòng thử lại!";
-
-        // Nếu là lỗi Timeout do Server Render đang "ngủ"
-        if (e.toString().contains("TIMEOUT")) {
-          errorMessage =
-              "Server AI đang khởi động (Cold Start). Vui lòng đợi khoảng 30 giây rồi thử chụp lại nhé!";
-        }
-
-        // Hiển thị thông báo thân thiện
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.warning_amber_rounded, color: Colors.white),
-                const SizedBox(width: 10),
-                Expanded(child: Text(errorMessage)),
-              ],
-            ),
-            backgroundColor: Colors.orange.shade800,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-            margin: const EdgeInsets.all(15),
-            duration: const Duration(seconds: 5),
+          const SnackBar(
+            content: Text("Lỗi kết nối máy chủ AI. Vui lòng thử lại!"),
+            backgroundColor: Colors.orange,
           ),
         );
-
-        // Khởi động lại khung quét để người dùng sẵn sàng chụp lại
         _resetScanner();
       }
     }
   }
 
-  // --- 2. HÀM RESET KHUNG QUÉT ---
+  // ==========================================
+  // LUỒNG 2: XỬ LÝ QUÉT QR ĐIỂM DANH (GỌI API THỰC TẾ)
+  // ==========================================
+  Future<void> _processQRCode() async {
+    setState(() => _isProcessing = true);
+
+    try {
+      // Gọi API thực tế truyền nguyên file ảnh lên server xử lý
+      // Yêu cầu: Backend phải có hàm dịch mã QR từ file ảnh và thực hiện check-in
+      final result = await EventService.checkInWithQRImage(_imageFile!);
+
+      if (mounted) {
+        setState(() {
+          _isProcessing = false;
+          _qrResultData = result;
+          // Kết quả mong đợi từ API Backend trả về có dạng:
+          // { "success": true, "message": "Điểm danh thành công sinh viên Nguyễn Văn A" }
+          // Hoặc: { "success": false, "message": "Mã QR không hợp lệ" }
+        });
+        _showResultSheet();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isProcessing = false;
+          _qrResultData = {
+            "success": false,
+            "message": "Lỗi kết nối máy chủ khi xác thực QR.",
+          };
+        });
+        _showResultSheet();
+      }
+    }
+  }
+
   void _resetScanner() {
     setState(() {
       _imageFile = null;
-      _resultData = null;
+      _wasteResultData = null;
+      _qrResultData = null;
     });
   }
 
-  // --- 3. HÀM HIỂN THỊ KẾT QUẢ ---
   void _showResultSheet() {
     showModalBottomSheet(
       context: context,
@@ -199,35 +211,35 @@ class _CameraAIPageState extends State<CameraAIPage>
       backgroundColor: Colors.transparent,
       enableDrag: false,
       isDismissible: false,
-      builder: (context) => _buildResultPanel(),
+      builder: (context) =>
+          _isQrMode ? _buildQRResultPanel() : _buildWasteResultPanel(),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    // Biểm tra xem user hiện tại có phải là club không
+    // Bạn có thể cần .toString().toLowerCase() tùy thuộc cấu trúc UserData
+    final bool isClubRole = UserData.role?.toLowerCase() == 'club';
+
     return Scaffold(
       backgroundColor: Colors.black,
       extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
-          // ==========================================
-          // 1. LỚP NỀN (HIỂN THỊ CAMERA LIVE HOẶC ẢNH ĐÃ CHỤP)
-          // ==========================================
+          // 1. LỚP NỀN CAMERA
           Positioned.fill(
             child: _imageFile != null
-                ? // A. Đã chụp xong: Hiển thị ảnh tĩnh
-                  (kIsWeb
+                ? (kIsWeb
                       ? Image.network(_imageFile!.path, fit: BoxFit.cover)
                       : Image.file(File(_imageFile!.path), fit: BoxFit.cover))
-                : // B. Chưa chụp: Hiển thị Camera Preview trực tiếp
-                  (_isCameraReady && _cameraController != null)
+                : (_isCameraReady && _cameraController != null)
                 ? AspectRatio(
                     aspectRatio: _cameraController!.value.aspectRatio,
                     child: CameraPreview(_cameraController!),
                   )
-                : // C. Đang khởi tạo: Hiển thị loading
-                  Container(
+                : Container(
                     color: const Color(0xFF1E1E1E),
                     child: const Center(
                       child: CircularProgressIndicator(
@@ -237,7 +249,7 @@ class _CameraAIPageState extends State<CameraAIPage>
                   ),
           ),
 
-          // 2. KHUNG QUÉT (Chỉ hiện khi chưa chụp ảnh)
+          // 2. KHUNG QUÉT
           if (_imageFile == null && !_isProcessing)
             Positioned.fill(child: _buildScannerOverlay()),
 
@@ -262,17 +274,19 @@ class _CameraAIPageState extends State<CameraAIPage>
                     color: Colors.black.withOpacity(0.5),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
                       Icon(
-                        Icons.auto_awesome,
-                        color: Colors.greenAccent,
+                        _isQrMode ? Icons.qr_code_scanner : Icons.auto_awesome,
+                        color: _isQrMode
+                            ? Colors.blueAccent
+                            : Colors.greenAccent,
                         size: 18,
                       ),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Text(
-                        "Eco AI",
-                        style: TextStyle(
+                        _isQrMode ? "Điểm danh QR" : "Eco AI",
+                        style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                         ),
@@ -288,29 +302,11 @@ class _CameraAIPageState extends State<CameraAIPage>
                   ),
                   onPressed: () async {
                     if (_cameraController != null && _isCameraReady) {
-                      try {
-                        // 1. Xác định chế độ muốn bật
-                        FlashMode newMode = _isFlashOn
-                            ? FlashMode.off
-                            : FlashMode.torch;
-
-                        await _cameraController!.setFlashMode(newMode);
-
-                        setState(() {
-                          _isFlashOn = !_isFlashOn;
-                        });
-                      } catch (e) {
-                        print(" Lỗi phần cứng Flash: $e");
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              "Thiết bị này không hỗ trợ đèn Flash!",
-                            ),
-                            backgroundColor: Colors.red,
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
-                      }
+                      FlashMode newMode = _isFlashOn
+                          ? FlashMode.off
+                          : FlashMode.torch;
+                      await _cameraController!.setFlashMode(newMode);
+                      setState(() => _isFlashOn = !_isFlashOn);
                     }
                   },
                 ),
@@ -318,7 +314,70 @@ class _CameraAIPageState extends State<CameraAIPage>
             ),
           ),
 
-          // 4. MÀN HÌNH ĐANG XỬ LÝ (Khi chụp xong và đang đợi AI mock)
+          // 4. THANH TOGGLE CHUYỂN CHẾ ĐỘ (CHỈ HIỆN VỚI ROLE CLB)
+          if (isClubRole && _imageFile == null && !_isProcessing)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 70,
+              left: 30,
+              right: 30,
+              child: Container(
+                height: 45,
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(25),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _isQrMode = false),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: !_isQrMode
+                                ? Colors.greenAccent
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(25),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            "Phân loại rác",
+                            style: TextStyle(
+                              color: !_isQrMode ? Colors.black : Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _isQrMode = true),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: _isQrMode
+                                ? Colors.blueAccent
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(25),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            "Quét vé sự kiện",
+                            style: TextStyle(
+                              color: _isQrMode ? Colors.white : Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          // 5. MÀN HÌNH ĐANG XỬ LÝ LOADING
           if (_isProcessing)
             Container(
               color: Colors.black.withOpacity(0.7),
@@ -329,25 +388,33 @@ class _CameraAIPageState extends State<CameraAIPage>
                     Stack(
                       alignment: Alignment.center,
                       children: [
-                        const SizedBox(
+                        SizedBox(
                           width: 80,
                           height: 80,
                           child: CircularProgressIndicator(
-                            color: Colors.greenAccent,
+                            color: _isQrMode
+                                ? Colors.blueAccent
+                                : Colors.greenAccent,
                             strokeWidth: 3,
                           ),
                         ),
                         Icon(
-                          Icons.recycling,
-                          color: Colors.greenAccent.withOpacity(0.8),
+                          _isQrMode ? Icons.qr_code : Icons.recycling,
+                          color:
+                              (_isQrMode
+                                      ? Colors.blueAccent
+                                      : Colors.greenAccent)
+                                  .withOpacity(0.8),
                           size: 40,
                         ),
                       ],
                     ),
                     const SizedBox(height: 25),
-                    const Text(
-                      "AI đang phân tích rác thải...",
-                      style: TextStyle(
+                    Text(
+                      _isQrMode
+                          ? "Đang gửi QR lên máy chủ..."
+                          : "AI đang phân tích rác thải...",
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -359,9 +426,7 @@ class _CameraAIPageState extends State<CameraAIPage>
               ),
             ),
 
-          // ==========================================
-          // 5. THANH ĐIỀU KHIỂN CHỤP ẢNH BÊN DƯỚI
-          // ==========================================
+          // 6. THANH ĐIỀU KHIỂN CHỤP ẢNH BÊN DƯỚI
           if (_imageFile == null && !_isProcessing && _isCameraReady)
             Positioned(
               bottom: 40,
@@ -370,17 +435,20 @@ class _CameraAIPageState extends State<CameraAIPage>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  // Nút mở Gallery
-                  IconButton(
-                    icon: const Icon(
-                      Icons.photo_library,
-                      color: Colors.white,
-                      size: 32,
-                    ),
-                    onPressed: () => _handleTakePicture(ImageSource.gallery),
-                  ),
+                  // Nút mở Gallery (Ẩn đi nếu đang quét điểm danh để tránh nhầm)
+                  if (!_isQrMode)
+                    IconButton(
+                      icon: const Icon(
+                        Icons.photo_library,
+                        color: Colors.white,
+                        size: 32,
+                      ),
+                      onPressed: () => _handleTakePicture(ImageSource.gallery),
+                    )
+                  else
+                    const SizedBox(width: 48),
 
-                  // NÚT CHỤP ẢNH (Bấm vào chụp cái live view)
+                  // NÚT CHỤP
                   GestureDetector(
                     onTap: () => _handleTakePicture(ImageSource.camera),
                     child: Container(
@@ -388,8 +456,15 @@ class _CameraAIPageState extends State<CameraAIPage>
                       height: 80,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.greenAccent, width: 4),
-                        color: Colors.greenAccent.withOpacity(0.2),
+                        border: Border.all(
+                          color: _isQrMode
+                              ? Colors.blueAccent
+                              : Colors.greenAccent,
+                          width: 4,
+                        ),
+                        color:
+                            (_isQrMode ? Colors.blueAccent : Colors.greenAccent)
+                                .withOpacity(0.2),
                       ),
                       child: Center(
                         child: Container(
@@ -399,10 +474,9 @@ class _CameraAIPageState extends State<CameraAIPage>
                             color: Colors.white,
                             shape: BoxShape.circle,
                           ),
-                          // Hiển thị loading nhỏ khi đang chụp
                           child: _isTakingPicture
-                              ? const CircularProgressIndicator(
-                                  color: Colors.green,
+                              ? CircularProgressIndicator(
+                                  color: _isQrMode ? Colors.blue : Colors.green,
                                 )
                               : null,
                         ),
@@ -410,7 +484,6 @@ class _CameraAIPageState extends State<CameraAIPage>
                     ),
                   ),
 
-                  // Nút trợ giúp
                   IconButton(
                     icon: const Icon(
                       Icons.help_outline,
@@ -427,10 +500,11 @@ class _CameraAIPageState extends State<CameraAIPage>
     );
   }
 
-  // --- CÁC WIDGET PHỤ  ---
   Widget _buildScannerOverlay() {
     const double scanBoxSize = 280.0;
     const double laserHeight = 4.0;
+    final Color themeColor = _isQrMode ? Colors.blueAccent : Colors.greenAccent;
+
     return Center(
       child: SizedBox(
         width: scanBoxSize,
@@ -440,10 +514,10 @@ class _CameraAIPageState extends State<CameraAIPage>
           children: [
             Stack(
               children: [
-                _buildCorner(Alignment.topLeft),
-                _buildCorner(Alignment.topRight),
-                _buildCorner(Alignment.bottomLeft),
-                _buildCorner(Alignment.bottomRight),
+                _buildCorner(Alignment.topLeft, themeColor),
+                _buildCorner(Alignment.topRight, themeColor),
+                _buildCorner(Alignment.bottomLeft, themeColor),
+                _buildCorner(Alignment.bottomRight, themeColor),
               ],
             ),
             AnimatedBuilder(
@@ -456,10 +530,10 @@ class _CameraAIPageState extends State<CameraAIPage>
                   child: Container(
                     height: laserHeight,
                     decoration: BoxDecoration(
-                      color: Colors.greenAccent,
+                      color: themeColor,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.greenAccent.withOpacity(0.8),
+                          color: themeColor.withOpacity(0.8),
                           blurRadius: 10,
                           spreadRadius: 2,
                         ),
@@ -483,9 +557,11 @@ class _CameraAIPageState extends State<CameraAIPage>
                     color: Colors.black54,
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Text(
-                    "Đưa vật thể vào trong khung hình",
-                    style: TextStyle(color: Colors.white, fontSize: 14),
+                  child: Text(
+                    _isQrMode
+                        ? "Đưa mã QR của sinh viên vào khung và bấm chụp"
+                        : "Đưa vật thể vào trong khung hình",
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
                   ),
                 ),
               ),
@@ -496,11 +572,8 @@ class _CameraAIPageState extends State<CameraAIPage>
     );
   }
 
-  Widget _buildCorner(Alignment alignment) {
-    BorderSide cornerSide = const BorderSide(
-      color: Colors.greenAccent,
-      width: 4,
-    );
+  Widget _buildCorner(Alignment alignment, Color color) {
+    BorderSide cornerSide = BorderSide(color: color, width: 4);
     return Align(
       alignment: alignment,
       child: Container(
@@ -534,7 +607,10 @@ class _CameraAIPageState extends State<CameraAIPage>
     );
   }
 
-  Widget _buildResultPanel() {
+  // BẢNG KẾT QUẢ CHO LUỒNG AI
+  Widget _buildWasteResultPanel() {
+    if (_wasteResultData == null) return const SizedBox();
+
     return Container(
       padding: const EdgeInsets.all(25),
       decoration: const BoxDecoration(
@@ -563,7 +639,7 @@ class _CameraAIPageState extends State<CameraAIPage>
                     const Icon(Icons.eco, color: Colors.green, size: 16),
                     const SizedBox(width: 5),
                     Text(
-                      _resultData!['category'],
+                      _wasteResultData!['category'] ?? "",
                       style: const TextStyle(
                         color: Colors.green,
                         fontWeight: FontWeight.bold,
@@ -573,29 +649,11 @@ class _CameraAIPageState extends State<CameraAIPage>
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  "Chính xác: ${(_resultData!['confidence'] * 100).toInt()}%",
-                  style: TextStyle(
-                    color: Colors.grey.shade700,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
             ],
           ),
           const SizedBox(height: 15),
           Text(
-            _resultData!['itemName'],
+            _wasteResultData!['itemName'] ?? "",
             style: const TextStyle(
               fontSize: 26,
               fontWeight: FontWeight.bold,
@@ -620,7 +678,7 @@ class _CameraAIPageState extends State<CameraAIPage>
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    _resultData!['suggestion'],
+                    _wasteResultData!['suggestion'] ?? "",
                     style: const TextStyle(
                       color: Color(0xFF1565C0),
                       fontSize: 14,
@@ -637,8 +695,8 @@ class _CameraAIPageState extends State<CameraAIPage>
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () {
-                    Navigator.pop(context); // Đóng ResultPanel
-                    _resetScanner(); // Chụp lại ảnh mới
+                    Navigator.pop(context);
+                    _resetScanner();
                   },
                   icon: const Icon(
                     Icons.refresh,
@@ -665,23 +723,12 @@ class _CameraAIPageState extends State<CameraAIPage>
                 flex: 2,
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    int pts = _resultData!['points'];
-                    // Giả lập cộng điểm thành công
-                    bool success = true;
-                    if (success) {
-                      Navigator.pop(context); // Đóng panel
-                      Navigator.pop(context); // Thoát trang camera
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text("Tuyệt vời! Bạn nhận được +$pts điểm"),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                    }
+                    Navigator.pop(context);
+                    Navigator.pop(context);
                   },
                   icon: const Icon(Icons.stars, color: Colors.white),
                   label: Text(
-                    "Nhận +${_resultData!['points']} điểm",
+                    "Nhận +${_wasteResultData!['points'] ?? 0} điểm",
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -698,6 +745,77 @@ class _CameraAIPageState extends State<CameraAIPage>
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // BẢNG KẾT QUẢ CHO LUỒNG QR
+  Widget _buildQRResultPanel() {
+    if (_qrResultData == null) return const SizedBox();
+
+    final bool isSuccess = _qrResultData!['success'] == true;
+    final String message = _qrResultData!['message'] ?? "Không có phản hồi";
+
+    return Container(
+      padding: const EdgeInsets.all(25),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isSuccess ? Icons.check_circle : Icons.error,
+            color: isSuccess ? Colors.green : Colors.red,
+            size: 70,
+          ),
+          const SizedBox(height: 15),
+          Text(
+            isSuccess ? "Thành công" : "Thất bại",
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: isSuccess ? Colors.green[800] : Colors.red[800],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 16,
+              color: Colors.black87,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 30),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _resetScanner(); // Sẵn sàng quét vé bạn tiếp theo
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isSuccess ? Colors.green : Colors.red,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                "Tiếp tục quét",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
           ),
         ],
       ),

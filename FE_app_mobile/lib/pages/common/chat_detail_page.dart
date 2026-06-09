@@ -1355,7 +1355,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                                   ),
                                 ),
                               )
-                            // THÊM TRẠNG THÁI TỪ CHỐI CHO NGƯỜI BÁN
+                            //  TRẠNG THÁI TỪ CHỐI CHO NGƯỜI BÁN
                             else if (orderData['status'] == 'cancelled')
                               Container(
                                 width: double.infinity,

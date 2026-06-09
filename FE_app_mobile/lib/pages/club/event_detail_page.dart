@@ -1,12 +1,31 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import '../../services/user_service.dart';
+import '../../services/event_service.dart';
 
-class EventDetailPage extends StatelessWidget {
+class EventDetailPage extends StatefulWidget {
   final Map<String, dynamic> eventData;
   const EventDetailPage({super.key, required this.eventData});
 
+  @override
+  State<EventDetailPage> createState() => _EventDetailPageState();
+}
+
+class _EventDetailPageState extends State<EventDetailPage> {
+  bool _isLoading = false;
+  bool _isRegistered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkInitialRegistrationStatus();
+  }
+
+  // ĐÃ THÊM: Hàm xử lý mở Link đính kèm
   Future<void> _launchUrl(String url) async {
     if (url.isEmpty) return;
     final Uri uri = Uri.parse(url);
@@ -15,28 +34,216 @@ class EventDetailPage extends StatelessWidget {
     }
   }
 
+  // 1. KIỂM TRA XEM SINH VIÊN ĐÃ ĐĂNG KÝ TỪ TRƯỚC CHƯA
+  void _checkInitialRegistrationStatus() {
+    final participants =
+        widget.eventData['participants'] as List<dynamic>? ?? [];
+    final myId = UserData.id;
+
+    if (myId != null && participants.isNotEmpty) {
+      bool alreadyRegistered = participants.any((p) {
+        String studentId = p['studentId'] is String
+            ? p['studentId']
+            : p['studentId']['_id'];
+        return studentId == myId;
+      });
+
+      setState(() {
+        _isRegistered = alreadyRegistered;
+      });
+    }
+  }
+
+  // 2. HÀM XỬ LÝ ĐĂNG KÝ (Gọi API)
+  Future<void> _handleRegister() async {
+    setState(() => _isLoading = true);
+
+    final String eventId =
+        widget.eventData['_id'] ?? widget.eventData['id'] ?? '';
+
+    if (eventId.isEmpty) {
+      _showModernSnackBar("Lỗi: Không tìm thấy ID sự kiện!", Colors.red);
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    bool success = await EventService.registerEvent(eventId);
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (success) {
+      setState(() {
+        _isRegistered = true;
+      });
+      _showModernSnackBar("Đăng ký thành công! Vé đã được lưu.", Colors.green);
+    } else {
+      _showModernSnackBar(
+        "Đăng ký thất bại hoặc bạn đã đăng ký rồi.",
+        Colors.orange,
+      );
+    }
+  }
+
+  // HÀM SNACKBAR HIỆN ĐẠI
+  void _showModernSnackBar(String msg, Color color) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Container(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            children: [
+              Icon(
+                color == Colors.green
+                    ? Icons.check_circle_outline
+                    : Icons.error_outline,
+                color: Colors.white,
+                size: 28,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  msg,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        margin: const EdgeInsets.only(bottom: 20, left: 20, right: 20),
+        elevation: 6,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  // HÀM HIỂN THỊ VÉ ĐIỆN TỬ (MÃ QR)
+  void _showTicketQR() {
+    // Lấy ID sinh viên và ID sự kiện để làm mã QR bảo mật
+    final String myId = UserData.id ?? "UNKNOWN_USER";
+    final String eventId =
+        widget.eventData['_id'] ?? widget.eventData['id'] ?? "UNKNOWN_EVENT";
+    final String qrData = "$myId-$eventId";
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          padding: const EdgeInsets.all(25),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                "VÉ ĐIỆN TỬ",
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFB71C1C),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                widget.eventData['title'] ?? "Tên sự kiện",
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 20),
+
+              // MÃ QR  (Dùng qr_flutter)
+              Container(
+                width: 200,
+                height: 200,
+                color: Colors.white,
+                alignment: Alignment.center,
+                child: QrImageView(
+                  data: qrData,
+                  version: QrVersions.auto,
+                  size: 200.0,
+                  foregroundColor: Colors.black, // Màu mã QR
+                ),
+              ),
+
+              const SizedBox(height: 20),
+              const Text(
+                "Đưa mã này cho Ban tổ chức\nđể điểm danh khi đến sự kiện",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey, fontSize: 13),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFB71C1C),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: const Text(
+                  "Đóng",
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // --- LẤY DỮ LIỆU ---
-    final String title = eventData['title'] ?? "Chi tiết sự kiện";
-    final String topic = eventData['topic'] ?? "Chưa cập nhật";
-    final String desc = eventData['description'] ?? "";
-    final String location = eventData['location'] ?? "";
-    final String date = eventData['date'] ?? "";
-    final String author = eventData['author'] ?? "";
-    final String email = eventData['contactEmail'] ?? "";
-    final String phone = eventData['contactPhone'] ?? "";
-    final String formLink = eventData['formLink'] ?? "";
-    final String bannerUrl = eventData['bannerUrl'] ?? "";
-    final String attachmentUrl = eventData['attachmentUrl'] ?? "";
-    bool isPaid =
-        eventData['isPaid'] == true ||
-        (eventData['price'] != null && eventData['price'] != "Miễn phí");
+    final data = widget.eventData;
 
-    final List<dynamic> promoLocs = eventData['promotionLocations'] ?? [];
-    final String promoStart = eventData['promotionStartDate'] ?? "";
-    final String promoEnd = eventData['promotionEndDate'] ?? "";
-    final bool hasPromo = promoLocs.isNotEmpty;
+    // --- LẤY DỮ LIỆU ---
+    final String title = data['title'] ?? "Chi tiết sự kiện";
+    final String topic = data['topic'] ?? "Chưa cập nhật";
+    final String desc = data['description'] ?? "";
+    final String location = data['location'] ?? "";
+    final String author = data['contactName'] ?? "Không có";
+    final String email = data['contactEmail'] ?? "Không có";
+    final String phone = data['contactPhone'] ?? "Không có";
+    final String bannerUrl = data['bannerUrl'] ?? "";
+    final String attachmentUrl = data['attachmentUrl'] ?? "";
+    final String status = data['status'] ?? "pending";
+
+    bool isPaid =
+        data['isPaid'] == true ||
+        (data['price'] != null && data['price'] != "Miễn phí");
+
+    // Xử lý Ngày diễn ra & Hạn chót
+    DateFormat inputFmt = DateFormat("yyyy-MM-dd'T'HH:mm:ss");
+    DateFormat displayFmt = DateFormat('HH:mm - dd/MM/yyyy');
+
+    String eventDateStr = "Chưa cập nhật";
+    String deadlineStr = "Chưa cập nhật";
+    bool isPastDeadline = false;
+
+    try {
+      if (data['eventDate'] != null) {
+        DateTime eDate = DateTime.parse(data['eventDate']).toLocal();
+        eventDateStr = displayFmt.format(eDate);
+      }
+      if (data['registrationDeadline'] != null) {
+        DateTime dDate = DateTime.parse(data['registrationDeadline']).toLocal();
+        deadlineStr = displayFmt.format(dDate);
+        isPastDeadline = DateTime.now().isAfter(dDate);
+      }
+    } catch (e) {
+      debugPrint("Lỗi parse ngày tháng: $e");
+    }
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -99,7 +306,10 @@ class EventDetailPage extends StatelessWidget {
                         image: DecorationImage(
                           image: kIsWeb
                               ? NetworkImage(bannerUrl)
-                              : FileImage(File(bannerUrl)) as ImageProvider,
+                              : (bannerUrl.startsWith('http')
+                                    ? NetworkImage(bannerUrl)
+                                    : FileImage(File(bannerUrl))
+                                          as ImageProvider),
                           fit: BoxFit.cover,
                         ),
                       ),
@@ -191,32 +401,28 @@ class EventDetailPage extends StatelessWidget {
                   ),
                   if (isPaid) ...[
                     const SizedBox(height: 10),
-                    _buildTextField("Giá vé", "${eventData['price']} VND"),
+                    _buildTextField(
+                      "Giá vé",
+                      "${data['price']} VND",
+                      textColor: Colors.red,
+                    ),
                   ],
 
                   const SizedBox(height: 15),
                   _buildTextField("Địa điểm", location),
-                  _buildTextField("Ngày tổ chức", date),
+                  _buildTextField("Thời gian diễn ra", eventDateStr),
+                  _buildTextField(
+                    "Hạn chót đăng ký",
+                    deadlineStr,
+                    textColor: Colors.red,
+                  ),
 
                   const SizedBox(height: 30),
                   _buildSectionTitle("Thông tin liên hệ"),
                   const SizedBox(height: 15),
-                  _buildTextField(
-                    "Người phụ trách",
-                    author.isEmpty ? "Không có" : author,
-                  ),
-                  _buildTextField("Email", email.isEmpty ? "Không có" : email),
-                  _buildTextField("Sđt", phone.isEmpty ? "Không có" : phone),
-
-                  if (formLink.isNotEmpty)
-                    GestureDetector(
-                      onTap: () => _launchUrl(formLink),
-                      child: _buildTextField(
-                        "Form đăng ký",
-                        formLink,
-                        textColor: Colors.blue,
-                      ),
-                    ),
+                  _buildTextField("Người phụ trách", author),
+                  _buildTextField("Email", email),
+                  _buildTextField("Sđt", phone),
 
                   const SizedBox(height: 30),
                   _buildSectionTitle("Tài liệu đính kèm"),
@@ -263,98 +469,121 @@ class EventDetailPage extends StatelessWidget {
                     ),
 
                   const SizedBox(height: 30),
-                  if (hasPromo)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(15),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFF3E0),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.orange.shade200),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: const [
-                              Icon(Icons.campaign, color: Colors.deepOrange),
-                              SizedBox(width: 8),
-                              Text(
-                                "Thông tin quảng bá",
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                  color: Colors.deepOrange,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const Divider(height: 20),
-                          ...promoLocs
-                              .map(
-                                (loc) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 5),
-                                  child: Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.check_circle,
-                                        size: 16,
-                                        color: Colors.deepOrange,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        loc == 'home'
-                                            ? "Trang chủ"
-                                            : "Diễn đàn",
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              const Text(
-                                "Thời gian:",
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                              const SizedBox(width: 5),
-                              Text(
-                                "$promoStart - $promoEnd",
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          const Center(
-                            child: Text(
-                              "(Đang chờ duyệt)",
-                              style: TextStyle(
-                                color: Colors.blue,
-                                fontStyle: FontStyle.italic,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                 ],
               ),
             ),
           ),
         ],
       ),
+
+      // --- THANH ĐIỀU HƯỚNG BÊN DƯỚI (NÚT ĐĂNG KÝ) ---
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.shade200,
+              blurRadius: 10,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: SafeArea(child: _buildActionButton(status, isPastDeadline)),
+      ),
+    );
+  }
+
+  // --- LOGIC XỬ LÝ NÚT BẤM DỰA VÀO TRẠNG THÁI ---
+  Widget _buildActionButton(String status, bool isPastDeadline) {
+    if (status == 'pending') {
+      return ElevatedButton(
+        onPressed: null,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.grey[300],
+          padding: const EdgeInsets.symmetric(vertical: 15),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: const Text(
+          "Sự kiện đang chờ Admin duyệt",
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey,
+          ),
+        ),
+      );
+    }
+
+    if (_isRegistered) {
+      return ElevatedButton.icon(
+        onPressed: _showTicketQR,
+        icon: const Icon(Icons.qr_code, color: Colors.white),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.green,
+          padding: const EdgeInsets.symmetric(vertical: 15),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        label: const Text(
+          "Xem Vé Điện Tử",
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+      );
+    }
+
+    if (isPastDeadline) {
+      return ElevatedButton(
+        onPressed: null,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.grey[300],
+          padding: const EdgeInsets.symmetric(vertical: 15),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: const Text(
+          "Đã đóng đăng ký",
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey,
+          ),
+        ),
+      );
+    }
+
+    return ElevatedButton(
+      onPressed: _isLoading ? null : _handleRegister,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFFB71C1C),
+        padding: const EdgeInsets.symmetric(vertical: 15),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      child: _isLoading
+          ? const SizedBox(
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 2,
+              ),
+            )
+          : const Text(
+              "Đăng ký tham gia",
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
     );
   }
 
@@ -362,7 +591,11 @@ class EventDetailPage extends StatelessWidget {
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
+        color: Color(0xFF2C2C54),
+      ),
     );
   }
 
@@ -408,9 +641,9 @@ class EventDetailPage extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 13,
                       color: textColor ?? Colors.black87,
-                      decoration: textColor != null
-                          ? TextDecoration.underline
-                          : null,
+                      fontWeight: textColor != null
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                     ),
                     maxLines: maxLines,
                     overflow: TextOverflow.ellipsis,
