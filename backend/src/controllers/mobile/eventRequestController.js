@@ -37,19 +37,19 @@ const getDatesInRange = (startDate, endDate) => {
     return dates;
 };
 
-// 1. TẠO YÊU CẦU SỰ KIỆN (Đã cập nhật để khớp với App Flutter mới)
+// 1. TẠO YÊU CẦU SỰ KIỆN 
 export const createEventRequest = async (req, res) => {
   try {
     const userId = req.user.id || req.user._id; 
     let {
-      title, // Flutter gửi lên là title
+      title, 
       topic, description, isPaid, price,
       location, eventDate, registrationDeadline, 
       contactName, contactEmail, contactPhone, 
       promotionLocations, promotionStartDate, promotionEndDate
     } = req.body;
 
-    // Chuyển isPaid từ chuỗi sang boolean
+    // Chuyển isPaid từ chuỗi sang boolean nếu cần
     const isPaidBool = isPaid === 'true' || isPaid === true;
 
     if (typeof promotionLocations === 'string') {
@@ -170,6 +170,50 @@ export const registerEvent = async (req, res) => {
   } catch (error) {
     console.error("Lỗi đăng ký:", error);
     res.status(500).json({ message: "Lỗi server." });
+  }
+};
+
+// --- LẤY DANH SÁCH SINH VIÊN ĐÃ ĐĂNG KÝ (Có populate thông tin User) ---
+export const getEventParticipants = async (req, res) => {
+  try {
+    const { eventId } = req.params;
+
+    // Tìm event và populate mảng participants.studentId
+    const event = await EventRequest.findById(eventId)
+      .populate({
+        path: 'participants.studentId',
+        select: 'student_name student_id email avatar', // Chỉ lấy những trường cần thiết để nhẹ payload
+      });
+
+    if (!event) {
+      return res.status(404).json({ message: "Sự kiện không tồn tại." });
+    }
+
+    // Định dạng lại data trả về cho frontend dễ xử lý
+    const formattedParticipants = event.participants.map(p => {
+        // Kiểm tra xem studentId có tồn tại không (đề phòng user đã bị xóa khỏi DB)
+        const studentInfo = p.studentId || {}; 
+        
+        return {
+            _id: studentInfo._id,
+            studentName: studentInfo.student_name || "Sinh viên ẩn danh",
+            studentCode: studentInfo.student_id || "N/A",
+            email: studentInfo.email || "",
+            avatar: studentInfo.avatar || "",
+            registeredAt: p.registeredAt,
+            checkInStatus: p.checkInStatus,
+            checkInAt: p.checkInAt
+        };
+    });
+
+    res.status(200).json({ 
+        success: true, 
+        data: formattedParticipants 
+    });
+
+  } catch (error) {
+    console.error("Lỗi lấy danh sách sinh viên:", error);
+    res.status(500).json({ message: "Lỗi server khi lấy danh sách." });
   }
 };
 
@@ -310,4 +354,43 @@ export const approveEvent = async (req, res) => {
         console.log(error);
         res.status(500).json({ message: error.message });
     }
+};
+// --- LẤY DANH SÁCH SỰ KIỆN SINH VIÊN ĐÃ ĐĂNG KÝ (VÉ ĐIỆN TỬ) ---
+export const getMyRegisteredEvents = async (req, res) => {
+  try {
+    const studentId = req.user.id || req.user._id;
+
+    // Tìm các sự kiện có chứa studentId trong mảng participants
+    const events = await EventRequest.find({
+      'participants.studentId': studentId
+    }).sort({ createdAt: -1 }); // Sự kiện mới đăng ký lên đầu
+
+    // Map lại data cho đúng chuẩn Frontend cần
+    const tickets = events.map(event => {
+      // Tìm trạng thái điểm danh của sinh viên này
+      const myParticipantInfo = event.participants.find(
+        p => p.studentId.toString() === studentId.toString()
+      );
+
+      // Xác định trạng thái hiển thị trên vé
+      let ticketStatus = "Sắp diễn ra";
+      if (myParticipantInfo && myParticipantInfo.checkInStatus === 'attended') {
+        ticketStatus = "Đã tham gia";
+      }
+
+      return {
+        eventId: event._id,
+        eventName: event.name || "Sự kiện chưa có tên",
+        date: event.date || "Chưa cập nhật",
+        time: `${event.startTime || '00:00'} - ${event.endTime || '23:59'}`,
+        location: event.location || "Chưa cập nhật",
+        status: ticketStatus
+      };
+    });
+
+    res.status(200).json({ success: true, data: tickets });
+  } catch (error) {
+    console.error("Lỗi lấy danh sách vé:", error);
+    res.status(500).json({ message: "Lỗi server khi lấy danh sách vé." });
+  }
 };

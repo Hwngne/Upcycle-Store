@@ -9,7 +9,9 @@ import {
     getPromotionAvailability,
     getActiveBanners,
     approveEvent,
-    registerEvent 
+    registerEvent,
+    getEventParticipants,
+    getMyRegisteredEvents
 } from '../../controllers/mobile/eventRequestController.js';
 
 const router = express.Router();
@@ -30,5 +32,6 @@ router.get('/my-events', protect, getMyEvents);
 router.get('/availability', protect, getPromotionAvailability);
 router.get('/banners', getActiveBanners);
 router.post('/:eventId/register', protect, registerEvent);
-
+router.get('/:eventId/participants', protect, getEventParticipants);
+router.get('/my-tickets', protect, getMyRegisteredEvents);
 export default router;
