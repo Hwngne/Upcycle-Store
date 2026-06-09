@@ -319,7 +319,7 @@ export const approveEvent = async (req, res) => {
 
         // COPY SANG FORUM
         if (status === 'approved') {
-            const existingPost = await Post.findOne({ title: eventRequest.name }); 
+            const existingPost = await Post.findOne({ refEventId: eventRequest._id }); 
             if (!existingPost) {
                 // Xử lý giá tiền an toàn
                 let finalPrice = 0;

@@ -90,8 +90,9 @@ const dirname = path.resolve();
 app.use('/uploads', express.static(path.join(dirname, 'uploads')));
 
 // Kết nối DB
+console.log("👉 [1] Bắt đầu kết nối MongoDB...");
 connectDB();
-
+console.log("✅ [2] Đã đi qua hàm connectDB.");
 // ==========================================
 // KHỞI TẠO HTTP SERVER & SOCKET.IO (CHAT)
 // ==========================================
@@ -255,6 +256,7 @@ app.use('/api/mobile/transactions', mobileOrderRoutes);
 app.use(errorHandler);
 
 // START SERVER
+console.log("👉 [3] Đang chuẩn bị mở Port...");
 server.listen(PORT,'0.0.0.0', () => {
   console.log(` Server đang chạy trên cổng ${PORT}`);
 });
