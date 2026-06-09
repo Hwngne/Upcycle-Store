@@ -1,7 +1,7 @@
 import express from 'express';
 import uploadCloud from '../../config/cloudinary.js';
 import { protect } from '../../middlewares/authMiddleware.js'; 
-
+import multer from 'multer';
 import { 
     createEventRequest, 
     getAllRequests, 
@@ -11,10 +11,12 @@ import {
     approveEvent,
     registerEvent,
     getEventParticipants,
-    getMyRegisteredEvents
+    getMyRegisteredEvents,
+    checkInWithQRImage
 } from '../../controllers/mobile/eventRequestController.js';
 
 const router = express.Router();
+const uploadMemory = multer({ storage: multer.memoryStorage() });
 
 router.post('/create', 
     protect, 
@@ -32,6 +34,7 @@ router.get('/my-events', protect, getMyEvents);
 router.get('/availability', protect, getPromotionAvailability);
 router.get('/banners', getActiveBanners);
 router.get('/my-tickets', protect, getMyRegisteredEvents);
+router.post('/check-in-qr', protect, uploadMemory.single('qrImage'), checkInWithQRImage);
 router.post('/:eventId/register', protect, registerEvent);
 router.get('/:eventId/participants', protect, getEventParticipants);
 export default router;

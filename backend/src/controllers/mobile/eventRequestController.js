@@ -1,6 +1,8 @@
 import EventRequest from '../../models/web/EventRequest.js';
 import User from '../../models/mobile/userModel.js';
 import Post from '../../models/mobile/postModel.js'; 
+import jsQR from 'jsqr';
+import Jimp from 'jimp';
 
 const POINTS_REWARD_CREATE = 100; 
 const POINTS_COST_PER_DAY = 100; 
@@ -392,5 +394,82 @@ export const getMyRegisteredEvents = async (req, res) => {
   } catch (error) {
     console.error("Lỗi lấy danh sách vé:", error);
     res.status(500).json({ message: "Lỗi server khi lấy danh sách vé." });
+  }
+};
+
+// --- XỬ LÝ QUÉT MÃ QR ĐIỂM DANH TỪ ẢNH CHỤP ---
+export const checkInWithQRImage = async (req, res) => {
+  try {
+    // 1. Kiểm tra xem có file ảnh gửi lên không
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "Không tìm thấy ảnh mã QR." });
+    }
+
+    // 2. Dùng Jimp đọc ảnh từ bộ nhớ đệm (buffer)
+    const image = await Jimp.read(req.file.buffer);
+    const imageData = {
+      data: new Uint8ClampedArray(image.bitmap.data),
+      width: image.bitmap.width,
+      height: image.bitmap.height
+    };
+
+    // 3. Giải mã QR bằng jsQR
+    const decodedQR = jsQR(imageData.data, imageData.width, imageData.height);
+
+    if (!decodedQR) {
+      return res.status(400).json({ success: false, message: "Ảnh mờ hoặc không nhận diện được mã QR. Vui lòng chụp lại!" });
+    }
+
+    // 4. Bóc tách dữ liệu từ QR (Định dạng: eventId|studentId)
+    const qrText = decodedQR.data; 
+    const parts = qrText.split('|');
+
+    if (parts.length !== 2) {
+      return res.status(400).json({ success: false, message: "Mã QR không hợp lệ hoặc không phải của hệ thống này." });
+    }
+
+    const [eventId, studentId] = parts;
+
+    // 5. Tìm sự kiện và kiểm tra danh sách
+    // Populate để lấy tên sinh viên hiển thị lên app cho đẹp
+    const event = await EventRequest.findById(eventId).populate('participants.studentId', 'student_name');
+    
+    if (!event) {
+      return res.status(404).json({ success: false, message: "Sự kiện không tồn tại hoặc đã bị xóa." });
+    }
+
+    // Tìm sinh viên trong mảng đăng ký
+    const participantIndex = event.participants.findIndex(
+      p => p.studentId && p.studentId._id.toString() === studentId
+    );
+
+    if (participantIndex === -1) {
+      return res.status(400).json({ success: false, message: "Sinh viên này chưa đăng ký tham gia sự kiện!" });
+    }
+
+    const participant = event.participants[participantIndex];
+
+    // Kiểm tra xem đã điểm danh trước đó chưa
+    if (participant.checkInStatus === 'attended') {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Sinh viên ${participant.studentId.student_name} đã được điểm danh trước đó rồi!` 
+      });
+    }
+
+    // 6. Cập nhật trạng thái thành 'attended'
+    event.participants[participantIndex].checkInStatus = 'attended';
+    event.participants[participantIndex].checkInAt = new Date();
+    await event.save();
+
+    // 7. Trả về thành công
+    return res.status(200).json({
+      success: true,
+      message: `Điểm danh thành công!\nSinh viên: ${participant.studentId.student_name}`
+    });
+
+  } catch (error) {
+    console.error("Lỗi quét QR:", error);
+    res.status(500).json({ success: false, message: "Lỗi hệ thống khi xử lý mã QR." });
   }
 };
