@@ -1,6 +1,7 @@
 //controller/eventController.js
 
 import EventRequest from "../../models/web/EventRequest.js";
+import Post from "../../models/mobile/postModel.js";
 import { normalizeEvent } from "../../utils/normalizeEvent.js";
 import { createNotification } from "../../utils/createNotification.js";
 export const getEventRequests = async (req, res) => {
@@ -51,6 +52,42 @@ export const updateEventStatus = async (req, res) => {
         type: "event",
         relatedEvent: updated._id,
       });
+
+      // 2. COPY SANG DIỄN ĐÀN 
+      try {
+        // Kiểm tra xem đã copy trước đó chưa (dựa vào ID sự kiện)
+        const existingPost = await Post.findOne({ refEventId: updated._id }); 
+        if (!existingPost) {
+            let finalPrice = 0;
+            if (updated.isPaid && updated.price) {
+                const priceStr = updated.price.toString().replace(/[^0-9]/g, '');
+                finalPrice = parseFloat(priceStr) || 0;
+            }
+
+            const newPost = new Post({
+                refEventId: updated._id, 
+                author: updated.createdBy, 
+                type: "Sự kiện", 
+                title: updated.name,
+                content: updated.description,
+                image: updated.bannerUrl,
+                attachment: updated.attachmentUrl,
+                attachmentName: "Tài liệu đính kèm",
+                topic: updated.topic,
+                price: finalPrice,
+                category: "Sự kiện", 
+                phone: updated.contactPhone,
+                date: updated.date,
+                eventTime: `${updated.startTime || ''} - ${updated.endTime || ''}`,
+                eventLocation: updated.location,
+                status: "Đang hiển thị"
+            });
+
+            await newPost.save();
+        }
+      } catch (postError) {
+        console.error("Lỗi khi copy sự kiện sang diễn đàn:", postError);
+      }
     }
 
     res.json(updated);

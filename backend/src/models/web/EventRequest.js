@@ -67,7 +67,7 @@ const eventRequestSchema = new mongoose.Schema(
       required: true
     },
   },
-  { timestamps: true, versionKey: false }
+  { timestamps: true, versionKey: false, collection: 'eventrequests' }
 );
 
 const EventRequest = mongoose.models.EventRequest || mongoose.model("EventRequest", eventRequestSchema);

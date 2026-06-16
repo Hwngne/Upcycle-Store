@@ -29,6 +29,8 @@ export const normalizeEvent = (event) => {
 
   return {
     ...event,
+    title: event.title || event.name || "Chưa có tên",
+    club: event.club || event.createdBy || null,
     _normalized: {
       date: parseDate(event.date),
       promotionStartDate: parseDate(event.promotionStartDate),
