@@ -18,12 +18,18 @@ const commentSchema = new mongoose.Schema({
   image: { type: String },
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   replies: [replySchema],
-
   createdAt: { type: Date, default: Date.now }
 });
 
 const postSchema = mongoose.Schema(
   {
+    // --- LIÊN KẾT VỚI SỰ KIỆN ---
+    refEventId: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: 'EventRequest',
+      default: null
+    },
+
     author: { 
       type: mongoose.Schema.Types.ObjectId, 
       required: true, 
@@ -41,7 +47,7 @@ const postSchema = mongoose.Schema(
     // Các trường riêng cho "Kiến thức"
     topic: { type: String, default: "" }, 
 
-    // Các trường riêng cho "Sản phẩm"
+    // Các trường riêng cho "Sản phẩm" & "Sự kiện"
     category: { type: String, default: "" }, 
     price: { type: Number, default: 0 },
     quantity: { type: Number, default: 1 },
@@ -53,15 +59,12 @@ const postSchema = mongoose.Schema(
 
     // Tương tác 
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], 
-    comments: [{ 
-      user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-      text: String,
-      date: { type: Date, default: Date.now }
-    }],
+    
     comments: [commentSchema],
   },
   { timestamps: true } 
 );
+
 postSchema.index({ title: 'text', content: 'text' });
 
 export default mongoose.model('Post', postSchema);
