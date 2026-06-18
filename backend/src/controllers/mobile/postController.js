@@ -121,6 +121,7 @@ export const getPosts = async (req, res) => {
     // 3. Query Database với Filter & Populate đầy đủ
     const posts = await Post.find(filter)
       .populate('author', 'name student_name avatar role club_info')
+      .populate('refEventId', 'registrationDeadline participants')
       .populate({
         path: 'comments',
         populate: [
@@ -140,6 +141,28 @@ export const getPosts = async (req, res) => {
         if (comment.replies) total += comment.replies.length; 
       });
       postObj.commentCount = total; 
+
+      if (postObj.type === "Sự kiện" && postObj.refEventId) {
+        // Lấy hạn chót từ bảng EventRequest
+        postObj.registrationDeadline = postObj.refEventId.registrationDeadline;
+
+        // 1. Kiểm tra xem đã hết hạn đăng ký chưa
+        if (postObj.registrationDeadline) {
+            const deadline = new Date(postObj.registrationDeadline);
+            postObj.isDeadlinePassed = new Date() > deadline;
+        } else {
+            postObj.isDeadlinePassed = false;
+        }
+
+        // 2. Kiểm tra xem Sinh viên này đã đăng ký chưa
+        if (currentUserId && postObj.refEventId.participants) {
+            postObj.isRegistered = postObj.refEventId.participants.some(
+                p => p.studentId && p.studentId.toString() === currentUserId
+            );
+        } else {
+            postObj.isRegistered = false;
+        }
+      }
 
       return postObj;
     });
