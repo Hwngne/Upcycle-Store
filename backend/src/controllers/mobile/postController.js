@@ -1,5 +1,6 @@
-import Post from '../../models/mobile//postModel.js';
-import User from '../../models/mobile//userModel.js';
+import Post from '../../models/mobile/postModel.js';
+import User from '../../models/mobile/userModel.js';
+import EventRequest from '../../models/web/EventRequest.js'; 
 
 // Cấu hình điểm thưởng khi đăng bài
 const POINTS_REWARD_POST = 20;
@@ -8,57 +9,29 @@ const POINTS_REWARD_POST = 20;
 // @route   POST /api/posts
 export const createPost = async (req, res) => {
   try {
-    const {
-      email,
-      type, title, content,
-      topic, category, price, quantity, phone,
-      attachmentName
-    } = req.body;
-
-    let imageUrl = "";
-    let attachmentUrl = "";
+    const { email, type, title, content, topic, category, price, quantity, phone, attachmentName } = req.body;
+    let imageUrl = ""; let attachmentUrl = "";
 
     if (req.files) {
-      if (req.files['image'] && req.files['image'][0]) {
-        imageUrl = req.files['image'][0].path;
-      }
-      if (req.files['attachment'] && req.files['attachment'][0]) {
-        attachmentUrl = req.files['attachment'][0].path;
-      }
+      if (req.files['image'] && req.files['image'][0]) imageUrl = req.files['image'][0].path;
+      if (req.files['attachment'] && req.files['attachment'][0]) attachmentUrl = req.files['attachment'][0].path;
     }
-    // 2. Tìm người dùng
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // 3. Tạo bài viết
     const post = new Post({
-      author: user._id,
-      type, title, content,
-
-      image: imageUrl,
-      attachment: attachmentUrl,
-      attachmentName,
-
-      topic, category, price, quantity, phone
+      author: user._id, type, title, content, image: imageUrl, attachment: attachmentUrl,
+      attachmentName, topic, category, price, quantity, phone
     });
 
     const createdPost = await post.save();
-
-    // 4. Cộng điểm
     let message = "Đăng bài thành công!";
     const currentPoints = user.total_points || 0;
     user.total_points = currentPoints + POINTS_REWARD_POST;
     await user.save();
-
     message += ` Bạn nhận được +${POINTS_REWARD_POST} điểm tích lũy.`;
 
-    // Trả về kết quả
-    res.status(201).json({
-      success: true,
-      message: message,
-      data: createdPost
-    });
-
+    res.status(201).json({ success: true, message: message, data: createdPost });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -68,6 +41,42 @@ export const createPost = async (req, res) => {
 // @route   GET /api/posts?email=...&type=...&topic=...&keyword=...
 export const getPosts = async (req, res) => {
   try {
+    try {
+        const approvedEvents = await EventRequest.find({ status: 'approved' });
+        for (const event of approvedEvents) {
+            const existingPost = await Post.findOne({ refEventId: event._id });
+            if (!existingPost) {
+                let finalPrice = 0;
+                if (event.isPaid && event.price) {
+                    const priceStr = event.price.toString().replace(/[^0-9]/g, '');
+                    finalPrice = parseFloat(priceStr) || 0;
+                }
+                await Post.create({
+                    refEventId: event._id,
+                    author: event.createdBy,
+                    type: "Sự kiện",
+                    title: event.name,
+                    content: event.description,
+                    image: event.bannerUrl,
+                    attachment: event.attachmentUrl,
+                    attachmentName: "Tài liệu đính kèm",
+                    topic: event.topic,
+                    price: finalPrice,
+                    category: "Sự kiện",
+                    phone: event.contactPhone,
+                    date: event.date,
+                    eventTime: `${event.startTime || ''} - ${event.endTime || ''}`,
+                    eventLocation: event.location,
+                    status: "Đang hiển thị" // <-- Mặc định để hiển thị
+                });
+                console.log(`[ĐỒNG BỘ] Đã tự động kéo sự kiện '${event.name}' lên Diễn đàn.`);
+            }
+        }
+    } catch (syncErr) {
+        console.error("Lỗi đồng bộ ngầm (App vẫn chạy bình thường):", syncErr);
+    }
+    // ==========================================================
+
     const { email, type, topic, category, keyword } = req.query;
     let currentUserId = null;
 
@@ -77,41 +86,27 @@ export const getPosts = async (req, res) => {
     }
 
     let filter = {};
-    if (type && type !== 'Tất cả') {
-      filter.type = type;
-    }
-    if (topic && topic !== 'Tất cả') {
-      filter.topic = topic;
-    }
-    if (category && category !== 'Tất cả') {
-      filter.category = category;
-    }
+    if (type && type !== 'Tất cả') filter.type = type;
+    if (topic && topic !== 'Tất cả') filter.topic = topic;
+    if (category && category !== 'Tất cả') filter.category = category;
     if (keyword) {
       filter.$or = [
         { title: { $regex: keyword, $options: 'i' } },
         { content: { $regex: keyword, $options: 'i' } }
       ];
     }
-    const now = new Date();
-    
+
+    // 2. FIX LỖI ẨN SỰ KIỆN TƯƠNG LAI
     const eventCondition = {
       $or: [
-        // Nhóm 1: BÀI BÌNH THƯỜNG (Không phải Sự kiện/Quảng bá) -> Luôn luôn hiển thị
         { type: { $nin: ["Sự kiện", "Quảng bá"] } }, 
-        
-        // Nhóm 2: LÀ BÀI SỰ KIỆN/QUẢNG BÁ -
         {
           type: { $in: ["Sự kiện", "Quảng bá"] },
           $or: [
             { status: "approved" }, 
+            { status: "Đang hiển thị" }, // Hỗ trợ status chuẩn của Post
             { status: null }, 
             { status: { $exists: false } }
-          ],
-          // Ngày phải <= hôm nay HOẶC không có ngày
-          $or: [
-            { date: { $lte: now } },
-            { date: null }, 
-            { date: { $exists: false } }
           ]
         }
       ]
@@ -129,14 +124,8 @@ export const getPosts = async (req, res) => {
       .populate({
         path: 'comments',
         populate: [
-          {
-            path: 'user',
-            select: 'name student_name avatar role club_info'
-          },
-          {
-            path: 'replies.user',
-            select: 'name student_name avatar role club_info'
-          }
+          { path: 'user', select: 'name student_name avatar role club_info' },
+          { path: 'replies.user', select: 'name student_name avatar role club_info' }
         ]
       })
       .sort({ createdAt: -1 });
@@ -144,27 +133,18 @@ export const getPosts = async (req, res) => {
     // 4. Xử lý dữ liệu trả về (Map thêm isLiked và commentCount)
     const result = posts.map(post => {
       const postObj = post.toObject(); 
+      postObj.isLiked = (currentUserId && post.likes.some(id => id.toString() === currentUserId)) ? true : false;
 
-      // A. Check trạng thái Like
-      if (currentUserId && post.likes.some(id => id.toString() === currentUserId)) {
-        postObj.isLiked = true;
-      } else {
-        postObj.isLiked = false;
-      }
-
-      // B. Tính tổng số bình luận (Cha + Con)
-      let total = postObj.comments.length; // Đếm cha
+      let total = postObj.comments.length; 
       postObj.comments.forEach(comment => {
-        if (comment.replies) {
-          total += comment.replies.length; // Cộng thêm con
-        }
+        if (comment.replies) total += comment.replies.length; 
       });
-      postObj.commentCount = total; // Gán vào field mới
+      postObj.commentCount = total; 
 
       return postObj;
     });
 
-    res.json(result); // Trả về mảng bài viết đã xử lý
+    res.json(result); 
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

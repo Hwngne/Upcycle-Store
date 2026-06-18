@@ -8,7 +8,6 @@ import {
     getMyEvents,
     getPromotionAvailability,
     getActiveBanners,
-    approveEvent,
     registerEvent,
     getEventParticipants,
     getMyRegisteredEvents,
@@ -27,7 +26,7 @@ router.post('/create',
     createEventRequest
 );
 
-router.put('/:id/approve', protect, approveEvent);
+// router.put('/:id/approve', protect, approveEvent);
 
 router.get('/all', protect, getAllRequests);
 router.get('/my-events', protect, getMyEvents);

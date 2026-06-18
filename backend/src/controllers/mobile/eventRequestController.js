@@ -297,66 +297,6 @@ export const getActiveBanners = async (req, res) => {
     }
 };
 
-// 4. DUYỆT SỰ KIỆN 
-export const approveEvent = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { status } = req.body; 
-
-        const eventRequest = await EventRequest.findById(id);
-        if (!eventRequest) return res.status(404).json({ message: "Sự kiện không tồn tại" });
-
-        eventRequest.status = status;
-        
-        // Logic Banner
-        if (status === 'approved' && eventRequest.promotionStatus === 'pending') {
-             eventRequest.promotionStatus = 'active'; 
-        } else if (status === 'rejected') {
-             eventRequest.promotionStatus = 'rejected';
-        }
-
-        await eventRequest.save();
-
-        // COPY SANG FORUM
-        if (status === 'approved') {
-            const existingPost = await Post.findOne({ refEventId: eventRequest._id }); 
-            if (!existingPost) {
-                // Xử lý giá tiền an toàn
-                let finalPrice = 0;
-                if (eventRequest.isPaid && eventRequest.price) {
-                    const priceStr = eventRequest.price.toString().replace(/[^0-9]/g, '');
-                    finalPrice = parseFloat(priceStr) || 0;
-                }
-
-                const newPost = new Post({
-                    author: eventRequest.createdBy, 
-                    type: "Sự kiện", 
-                    title: eventRequest.name,
-                    content: eventRequest.description,
-                    image: eventRequest.bannerUrl,
-                    attachment: eventRequest.attachmentUrl,
-                    attachmentName: "Tài liệu đính kèm",
-                    topic: eventRequest.topic,
-                    price: finalPrice,
-                    category: "Sự kiện", 
-                    phone: eventRequest.contactPhone,
-                    date: eventRequest.date,
-                    eventTime: `${eventRequest.startTime} - ${eventRequest.endTime}`,
-                    eventLocation: eventRequest.location,
-                    status: "Đang hiển thị"
-                });
-
-                await newPost.save();
-            }
-        }
-
-        res.json({ success: true, message: `Đã cập nhật trạng thái thành ${status}` });
-
-    } catch (error) {
-        console.log(error);
-        res.status(500).json({ message: error.message });
-    }
-};
 // --- LẤY DANH SÁCH SỰ KIỆN SINH VIÊN ĐÃ ĐĂNG KÝ (VÉ ĐIỆN TỬ) ---
 export const getMyRegisteredEvents = async (req, res) => {
   try {
