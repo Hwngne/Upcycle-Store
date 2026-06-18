@@ -1526,7 +1526,9 @@ class _ForumPageState extends State<ForumPage>
             ),
 
           // File đính kèm
-          if (post.attachmentName != null && post.attachmentName!.isNotEmpty)
+          if (!isEvent &&
+              post.attachmentName != null &&
+              post.attachmentName!.isNotEmpty)
             InkWell(
               onTap: () async {
                 if (post.attachmentUrl != null) {
@@ -1595,45 +1597,65 @@ class _ForumPageState extends State<ForumPage>
               // Nút Mua ngay / Liên hệ
               if (post.authorName != UserData.name)
                 ElevatedButton.icon(
-                  onPressed:
-                      (isProduct &&
-                          (post.quantity == null || post.quantity! <= 0))
-                      ? null
-                      : () {
-                          if (post.authorId == UserData.id) return;
+                  onPressed: () async {
+                    if (post.authorId == UserData.id) return;
 
-                          // LOGIC MỚI: Tách biệt luồng Mua sản phẩm và Liên hệ sự kiện
-                          if (isProduct) {
-                            // Nếu là sản phẩm -> Mở Popup chọn số lượng
-                            _showBuyDialog(context, post);
-                          } else {
-                            // Nếu là sự kiện/kiến thức -> Vào thẳng Chat như cũ
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => ChatDetailPage(
-                                  partnerId: post.authorId,
-                                  partnerName: post.authorName,
-                                  partnerImage: post.authorAvatar,
-                                  isOnline: true,
-                                  productInfo:
-                                      null, // Không mang theo cờ đặt hàng
-                                ),
-                              ),
-                            );
-                          }
-                        },
+                    // --- LOGIC 1: ĐĂNG KÝ SỰ KIỆN ---
+                    if (isEvent) {
+                        // Kiểm tra nếu đã đăng ký hoặc hết hạn thì vô hiệu hóa nút
+                        if (post.isRegistered == true || post.isDeadlinePassed == true) return;
+
+                        // Hiển thị loading (tùy chọn) hoặc gọi trực tiếp API
+                        bool success = await ForumService.registerEvent(post.refEventId ?? post.id); // Gọi hàm đăng ký trong service
+                        
+                        if (success) {
+                             setState(() {
+                                post.isRegistered = true; // Chuyển trạng thái để nút đổi màu ngay lập tức
+                             });
+                             _showCustomSnackBar("Đăng ký thành công!", isSuccess: true);
+                        } else {
+                             _showCustomSnackBar("Đăng ký thất bại, vui lòng thử lại.", isSuccess: false);
+                        }
+                        return;
+                    }
+
+                    // --- LOGIC 2: SẢN PHẨM / KIẾN THỨC ---
+                    if (isProduct && (post.quantity == null || post.quantity! <= 0)) {
+                        return; // Nút bị disable nếu hết hàng
+                    }
+                    
+                    if (isProduct) {
+                      _showBuyDialog(context, post);
+                    } else {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ChatDetailPage(
+                            partnerId: post.authorId,
+                            partnerName: post.authorName,
+                            partnerImage: post.authorAvatar,
+                            isOnline: true,
+                            productInfo: null,
+                          ),
+                        ),
+                      );
+                    }
+                  },
                   icon: Icon(
-                    isProduct ? Icons.shopping_cart_checkout : Icons.message,
+                    isEvent ? Icons.event_available : (isProduct ? Icons.shopping_cart_checkout : Icons.message),
                     size: 16,
                     color: Colors.white,
                   ),
                   label: Text(
-                    isProduct
-                        ? ((post.quantity != null && post.quantity! > 0)
-                              ? "Mua ngay"
-                              : "Hết hàng")
-                        : "Liên hệ",
+                    isEvent
+                        ? (post.isDeadlinePassed == true
+                            ? "Đã đóng"
+                            : (post.isRegistered == true ? "Đã đăng ký" : "Đăng ký"))
+                        : (isProduct
+                            ? ((post.quantity != null && post.quantity! > 0)
+                                ? "Mua ngay"
+                                : "Hết hàng")
+                            : "Liên hệ"),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 13,
@@ -1641,20 +1663,20 @@ class _ForumPageState extends State<ForumPage>
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        (isProduct &&
-                            (post.quantity == null || post.quantity! <= 0))
-                        ? Colors.grey.shade400
-                        : (isProduct
-                              ? const Color(0xFF059669)
-                              : const Color(0xFF2C2C54)),
+                    // Xử lý màu nền
+                    backgroundColor: isEvent
+                        ? (post.isDeadlinePassed == true || post.isRegistered == true
+                            ? Colors.grey.shade400 // Màu xám nếu không bấm được
+                            : Colors.orange.shade600) // Màu cam nổi bật nếu bấm được
+                        : ((isProduct && (post.quantity == null || post.quantity! <= 0))
+                            ? Colors.grey.shade400
+                            : (isProduct
+                                ? const Color(0xFF059669)
+                                : const Color(0xFF2C2C54))),
                     disabledBackgroundColor: Colors.grey.shade400,
                     foregroundColor: Colors.white,
                     disabledForegroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 15,
-                      vertical: 8,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                     ),

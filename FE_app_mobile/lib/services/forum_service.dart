@@ -32,6 +32,10 @@ class ForumPost {
   final String? eventTime;
   final String? eventLocation;
   List<dynamic>? commentsList;
+  final String? refEventId;
+  final String? registrationDeadline;
+  bool? isDeadlinePassed;
+  bool? isRegistered;
 
   ForumPost({
     required this.id,
@@ -57,6 +61,10 @@ class ForumPost {
     this.commentsList = const [],
     this.quantity,
     this.title,
+    this.refEventId,
+    this.registrationDeadline,
+    this.isDeadlinePassed = false,
+    this.isRegistered = false,
   });
 }
 
@@ -117,6 +125,12 @@ class ForumService {
             eventDate: json['date'] ?? json['eventDate'],
             eventTime: json['eventTime'],
             eventLocation: json['eventLocation'],
+            refEventId: json['refEventId'] is Map
+                ? json['refEventId']['_id']
+                : json['refEventId'],
+            registrationDeadline: json['registrationDeadline'],
+            isDeadlinePassed: json['isDeadlinePassed'] ?? false,
+            isRegistered: json['isRegistered'] ?? false,
           );
         }).toList();
       }
@@ -640,4 +654,28 @@ class ForumService {
       return false;
     }
   }
+  // --- 15. ĐĂNG KÝ SỰ KIỆN ---
+  static Future<bool> registerEvent(String eventId) async {
+    try {
+      final token = await AuthService.getToken();
+      final response = await http.post(
+        Uri.parse('${ApiConstants.baseUrl}/event-requests/$eventId/register'), 
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return true;
+      } else {
+        print("Lỗi đăng ký sự kiện: ${response.body}");
+        return false;
+      }
+    } catch (e) {
+      print("Lỗi kết nối khi đăng ký sự kiện: $e");
+      return false;
+    }
+  }
 }
+

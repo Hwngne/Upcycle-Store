@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../services/event_service.dart'; 
+import '../../services/event_service.dart';
 
 class ParticipantsListPage extends StatefulWidget {
   final String eventId;
@@ -108,8 +108,7 @@ class _ParticipantsListPageState extends State<ParticipantsListPage> {
                 : _foundParticipants.isEmpty
                 ? const Center(child: Text("Không có sinh viên nào"))
                 : RefreshIndicator(
-                    onRefresh:
-                        _fetchParticipants, 
+                    onRefresh: _fetchParticipants,
                     child: ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 15),
                       itemCount: _foundParticipants.length,
@@ -142,8 +141,24 @@ class _ParticipantsListPageState extends State<ParticipantsListPage> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            subtitle: Text(
-                              "${p['studentCode']} • ${p['email'] ?? ''}",
+                            subtitle: Builder(
+                              builder: (context) {
+                                String code = (p['studentCode'] ?? "")
+                                    .toString();
+                                String email = (p['email'] ?? "").toString();
+
+                                // Nếu MSSV trống hoặc bằng "N/A", chỉ hiển thị Email
+                                if (code.isEmpty || code == "N/A") {
+                                  return Text(email);
+                                }
+
+                                // Nếu có MSSV hợp lệ, hiển thị cả hai
+                                return Text(
+                                  "$code • $email",
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                );
+                              },
                             ),
                             trailing: Icon(
                               p['checkInStatus'] == 'attended'
