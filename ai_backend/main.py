@@ -9,6 +9,7 @@ from starlette.status import HTTP_403_FORBIDDEN
 from dotenv import load_dotenv
 import google.generativeai as genai
 from PIL import Image
+import time
 
 # Load environment variables
 load_dotenv()
@@ -106,9 +107,19 @@ async def classify_waste(
         contents = await file.read()
         image = Image.open(io.BytesIO(contents))
 
+        # 1. BẤM GIỜ BẮT ĐẦU
+        start_time = time.time()
+
         # Generate content with Gemini - we only need to pass the image since instruction is in system_instruction
         response = model.generate_content(image)
         
+        # 2. BẤM GIỜ KẾT THÚC & TÍNH TOÁN
+        end_time = time.time()
+        process_time = round(end_time - start_time, 2)
+        
+        # 3. IN RA BẢNG LOG 
+        print(f" Gemini phân tích ảnh mất: {process_time} giây")
+
         # Extract text response
         result_text = response.text.strip()
         
@@ -120,7 +131,12 @@ async def classify_waste(
 
         try:
             classification_result = json.loads(result_text)
+            
+            # (Tùy chọn) Gắn luôn thời gian này trả về cho App Mobile hiển thị
+            classification_result["processing_time_seconds"] = process_time
+            
             return standard_response(True, 200, "Phân loại rác thải thành công", classification_result)
+        
         except json.JSONDecodeError as je:
             print(f"JSON Decode Error: {je} - Original text: {result_text}")
             return standard_response(False, 500, "Lỗi phân tích kết quả từ AI", {"error": str(je)})
