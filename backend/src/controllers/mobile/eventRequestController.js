@@ -412,44 +412,59 @@ export const checkInWithQRImage = async (req, res) => {
     res.status(500).json({ success: false, message: "Lỗi hệ thống khi xử lý mã QR." });
   }
 };
-  // --- XỬ LÝ QUÉT MÃ QR ĐIỂM DANH TỪ TEXT JSON (LUỒNG SIÊU TỐC MỚI) ---
+  // --- XỬ LÝ QUÉT MÃ QR ĐIỂM DANH TỪ TEXT JSON  ---
 export const checkInWithQRText = async (req, res) => {
   try {
-    // 1. Lấy chuỗi text được gửi từ Mobile lên
     const { qrText } = req.body;
 
     if (!qrText) {
       return res.status(400).json({ success: false, message: "Không tìm thấy dữ liệu mã QR." });
     }
 
-    // 2. Bóc tách dữ liệu từ QR (Định dạng mong đợi: eventId|studentId)
+    // [IN RA LOG] Để bạn dễ dàng xem mã QR thực chất đang chứa chuỗi gì
+    console.log("🔍 [Check-in] Dữ liệu QR nhận được:", qrText);
+
     const parts = qrText.split('|');
 
     if (parts.length !== 2) {
-      return res.status(400).json({ success: false, message: "Mã QR không hợp lệ hoặc không phải của hệ thống này." });
+      return res.status(400).json({ success: false, message: "Mã QR không đúng định dạng hệ thống (Yêu cầu: EventID|StudentID)." });
     }
 
-    const [eventId, studentId] = parts;
+    // 1. Cắt bỏ khoảng trắng thừa (Rất hay bị dính khi sinh QR code)
+    const eventId = parts[0].trim();
+    const studentInfoFromQR = parts[1].trim(); 
 
-    // 3. Tìm sự kiện và kiểm tra danh sách
-    const event = await EventRequest.findById(eventId).populate('participants.studentId', 'student_name');
+    // 2. Lấy thêm student_id (MSSV) và email từ DB để quét đa năng
+    const event = await EventRequest.findById(eventId)
+        .populate('participants.studentId', 'student_name student_id email');
     
     if (!event) {
       return res.status(404).json({ success: false, message: "Sự kiện không tồn tại hoặc đã bị xóa." });
     }
 
-    // 4. Tìm sinh viên trong mảng đăng ký
+    // 3. TÌM SINH VIÊN (Chấp nhận cả MongoID, MSSV, hoặc Email)
     const participantIndex = event.participants.findIndex(
-      p => p.studentId && p.studentId._id.toString() === studentId
+      p => {
+        if (!p.studentId) return false;
+        
+        const dbId = p.studentId._id.toString();
+        const dbMssv = p.studentId.student_id ? p.studentId.student_id.toString() : "";
+        const dbEmail = p.studentId.email ? p.studentId.email.toString() : "";
+
+        // So sánh: Trúng 1 trong 3 là điểm danh thành công!
+        return dbId === studentInfoFromQR || 
+               dbMssv === studentInfoFromQR || 
+               dbEmail === studentInfoFromQR;
+      }
     );
 
     if (participantIndex === -1) {
+      console.log(`Lỗi: Không tìm thấy sinh viên [${studentInfoFromQR}] trong sự kiện [${eventId}]`);
       return res.status(400).json({ success: false, message: "Sinh viên này chưa đăng ký tham gia sự kiện!" });
     }
 
     const participant = event.participants[participantIndex];
 
-    // 5. Kiểm tra xem đã điểm danh trước đó chưa
     if (participant.checkInStatus === 'attended') {
       return res.status(400).json({ 
         success: false, 
@@ -457,12 +472,11 @@ export const checkInWithQRText = async (req, res) => {
       });
     }
 
-    // 6. Cập nhật trạng thái thành 'attended'
+    // 4. Cập nhật thành công
     event.participants[participantIndex].checkInStatus = 'attended';
     event.participants[participantIndex].checkInAt = new Date();
     await event.save();
 
-    // 7. Trả về thành công
     return res.status(200).json({
       success: true,
       message: `Điểm danh thành công!\nSinh viên: ${participant.studentId.student_name}`

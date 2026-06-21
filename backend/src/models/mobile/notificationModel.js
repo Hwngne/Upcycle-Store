@@ -20,7 +20,7 @@ const notificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['event', 'point', 'chat', 'general'], 
+      enum: ['event', 'point', 'chat', 'general', 'gift'], 
       default: 'general',
     },
     relatedEvent: {
