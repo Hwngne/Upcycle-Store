@@ -411,6 +411,7 @@ export const checkInWithQRImage = async (req, res) => {
     console.error("Lỗi quét QR:", error);
     res.status(500).json({ success: false, message: "Lỗi hệ thống khi xử lý mã QR." });
   }
+};
   // --- XỬ LÝ QUÉT MÃ QR ĐIỂM DANH TỪ TEXT JSON (LUỒNG SIÊU TỐC MỚI) ---
 export const checkInWithQRText = async (req, res) => {
   try {
@@ -471,5 +472,4 @@ export const checkInWithQRText = async (req, res) => {
     console.error("Lỗi quét QR Text:", error);
     res.status(500).json({ success: false, message: "Lỗi hệ thống khi xử lý mã QR." });
   }
-};
 };
