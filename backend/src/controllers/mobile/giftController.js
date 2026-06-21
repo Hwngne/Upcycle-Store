@@ -1,6 +1,7 @@
 import Gift from '../../models/mobile/giftModel.js';
 import User from '../../models/mobile/userModel.js';
 import Transaction from '../../models/mobile/transactionModel.js';
+import Notification from '../../models/mobile/notificationModel.js'; 
 
 // 1. Lấy danh sách quà
 export const getAllGifts = async (req, res) => {
@@ -67,7 +68,25 @@ export const redeemGift = async (req, res) => {
       status: 'pending' 
     });
 
-    // E. Trả kết quả
+    // ==========================================
+    // E. GỬI THÔNG BÁO (NOTIFICATION) 
+    // ==========================================
+    try {
+      await Notification.create({
+        user: userId,
+        title: "Đổi quà thành công! ",
+        message: `Bạn đã đổi thành công phần quà "${gift.name}". ${gift.point} điểm đã được khấu trừ. Mã nhận quà của bạn là: ${code}. Vui lòng kiểm tra lịch sử để xem chi tiết.`,
+        type: "gift", // Phân loại thông báo để frontend dễ xử lý icon (nếu cần)
+        isRead: false
+      });
+      console.log(`[Notification] Đã gửi thông báo đổi quà cho user ${userId}`);
+    } catch (notiErr) {
+      // Dùng try-catch riêng để nếu lỗi thông báo cũng KHÔNG làm gãy luồng đổi quà chính
+      console.error("Lỗi gửi thông báo đổi quà:", notiErr);
+    }
+    // ==========================================
+
+    // F. Trả kết quả
     res.status(200).json({
       success: true,
       newPoints: user.total_points,
@@ -132,23 +151,37 @@ export const checkExpiredTransactions = async () => {
     const now = new Date();
     const threeDaysAgo = new Date(now.getTime() - (3 * 24 * 60 * 60 * 1000));
 
-    const result = await Transaction.updateMany(
-      { 
-        status: 'pending',
-        $or: [
-          { expiresAt: { $lt: now } },
-          { expiresAt: { $exists: false }, createdAt: { $lt: threeDaysAgo } }
-        ]
-      },
-      { 
-        $set: { status: 'expired' } 
-      }
-    );
+    // A. Tìm tất cả các đơn hàng đã quá hạn chưa được xử lý
+    const expiredTransactions = await Transaction.find({
+      status: 'pending',
+      $or: [
+        { expiresAt: { $lt: now } },
+        { expiresAt: { $exists: false }, createdAt: { $lt: threeDaysAgo } }
+      ]
+    });
 
-    if (result.modifiedCount > 0) {
-      console.log(`[CRON] ✅ Đã tự động hủy ${result.modifiedCount} đơn quà quá hạn.`);
+    if (expiredTransactions.length > 0) {
+      // B. Duyệt qua từng đơn để cập nhật và bắn thông báo cá nhân hóa
+      for (const trans of expiredTransactions) {
+        trans.status = 'expired';
+        await trans.save();
+
+        try {
+          // Bắn thông báo đến đúng người đổi 
+          await Notification.create({
+            user: trans.user, 
+            title: "Mã nhận quà đã hết hạn! ⏰",
+            message: `Mã nhận quà ${trans.redemptionCode} cho phần quà "${trans.giftName}" của bạn đã quá hạn 3 ngày và bị hủy tự động.`,
+            type: "gift",
+            isRead: false
+          });
+        } catch (notiErr) {
+          console.error("Lỗi bắn thông báo hủy đơn:", notiErr);
+        }
+      }
+      console.log(`[CRON] Đã tự động hủy và bắn thông báo cho ${expiredTransactions.length} đơn quà quá hạn.`);
     }
   } catch (error) {
-    console.error("[CRON] ❌ Lỗi quét transaction:", error);
+    console.error("[CRON] Lỗi quét transaction:", error);
   }
 };

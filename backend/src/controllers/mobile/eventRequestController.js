@@ -411,4 +411,65 @@ export const checkInWithQRImage = async (req, res) => {
     console.error("Lỗi quét QR:", error);
     res.status(500).json({ success: false, message: "Lỗi hệ thống khi xử lý mã QR." });
   }
+  // --- XỬ LÝ QUÉT MÃ QR ĐIỂM DANH TỪ TEXT JSON (LUỒNG SIÊU TỐC MỚI) ---
+export const checkInWithQRText = async (req, res) => {
+  try {
+    // 1. Lấy chuỗi text được gửi từ Mobile lên
+    const { qrText } = req.body;
+
+    if (!qrText) {
+      return res.status(400).json({ success: false, message: "Không tìm thấy dữ liệu mã QR." });
+    }
+
+    // 2. Bóc tách dữ liệu từ QR (Định dạng mong đợi: eventId|studentId)
+    const parts = qrText.split('|');
+
+    if (parts.length !== 2) {
+      return res.status(400).json({ success: false, message: "Mã QR không hợp lệ hoặc không phải của hệ thống này." });
+    }
+
+    const [eventId, studentId] = parts;
+
+    // 3. Tìm sự kiện và kiểm tra danh sách
+    const event = await EventRequest.findById(eventId).populate('participants.studentId', 'student_name');
+    
+    if (!event) {
+      return res.status(404).json({ success: false, message: "Sự kiện không tồn tại hoặc đã bị xóa." });
+    }
+
+    // 4. Tìm sinh viên trong mảng đăng ký
+    const participantIndex = event.participants.findIndex(
+      p => p.studentId && p.studentId._id.toString() === studentId
+    );
+
+    if (participantIndex === -1) {
+      return res.status(400).json({ success: false, message: "Sinh viên này chưa đăng ký tham gia sự kiện!" });
+    }
+
+    const participant = event.participants[participantIndex];
+
+    // 5. Kiểm tra xem đã điểm danh trước đó chưa
+    if (participant.checkInStatus === 'attended') {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Sinh viên ${participant.studentId.student_name} đã được điểm danh trước đó rồi!` 
+      });
+    }
+
+    // 6. Cập nhật trạng thái thành 'attended'
+    event.participants[participantIndex].checkInStatus = 'attended';
+    event.participants[participantIndex].checkInAt = new Date();
+    await event.save();
+
+    // 7. Trả về thành công
+    return res.status(200).json({
+      success: true,
+      message: `Điểm danh thành công!\nSinh viên: ${participant.studentId.student_name}`
+    });
+
+  } catch (error) {
+    console.error("Lỗi quét QR Text:", error);
+    res.status(500).json({ success: false, message: "Lỗi hệ thống khi xử lý mã QR." });
+  }
+};
 };

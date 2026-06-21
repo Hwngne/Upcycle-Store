@@ -11,7 +11,8 @@ import {
     registerEvent,
     getEventParticipants,
     getMyRegisteredEvents,
-    checkInWithQRImage
+    checkInWithQRImage,
+    checkInWithQRText
 } from '../../controllers/mobile/eventRequestController.js';
 
 const router = express.Router();
@@ -34,6 +35,7 @@ router.get('/availability', protect, getPromotionAvailability);
 router.get('/banners', getActiveBanners);
 router.get('/my-tickets', protect, getMyRegisteredEvents);
 router.post('/check-in-qr', protect, uploadMemory.single('qrImage'), checkInWithQRImage);
+router.post('/check-in-qr-text', protect, checkInWithQRText);
 router.post('/:eventId/register', protect, registerEvent);
 router.get('/:eventId/participants', protect, getEventParticipants);
 export default router;
