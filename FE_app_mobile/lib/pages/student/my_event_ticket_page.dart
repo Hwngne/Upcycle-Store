@@ -80,9 +80,9 @@ class _MyEventTicketsPageState extends State<MyEventTicketsPage> {
     );
   }
 
-  Widget _buildTicketCard(Map<String, dynamic> ticket) {
-    final String studentId = UserData.role ?? "student_id_here";
-    final String qrData = "${ticket['eventId']}|$studentId";
+ Widget _buildTicketCard(Map<String, dynamic> ticket) {
+    final String studentInfo = UserData.email ?? UserData.id ?? "unknown"; 
+    final String qrData = "${ticket['eventId']}|$studentInfo";
 
     return Container(
       margin: const EdgeInsets.only(bottom: 20),

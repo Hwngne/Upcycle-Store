@@ -249,6 +249,30 @@ class EventService {
     }
   }
 
+  // --- HÀM ĐIỂM DANH BẰNG TEXT (SIÊU TỐC) ---
+  static Future<Map<String, dynamic>> checkInWithQRText(String qrText) async {
+    try {
+      final token = await AuthService.getToken();
+      final response = await http.post(
+        Uri.parse('$baseUrl/check-in-qr-text'), 
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'qrText': qrText,
+        }),
+      );
+
+      final responseBody = utf8.decode(response.bodyBytes);
+      return jsonDecode(responseBody);
+      
+    } catch (e) {
+      print("Lỗi Check-in QR Text: $e");
+      return {"success": false, "message": "Lỗi kết nối máy chủ"};
+    }
+  }
+
   // --- HÀM LẤY DANH SÁCH SỰ KIỆN MÀ TÔI ĐÃ ĐĂNG KÝ ---
   static Future<List<dynamic>> getMyRegisteredEvents() async {
     try {

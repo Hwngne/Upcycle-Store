@@ -234,6 +234,8 @@ class _NotificationPageState extends State<NotificationPage> {
         return Icons.calendar_month;
       case 'chat':
         return Icons.message;
+      case 'gift': 
+        return Icons.card_giftcard;
       default:
         return Icons.notifications;
     }
@@ -247,6 +249,8 @@ class _NotificationPageState extends State<NotificationPage> {
         return Colors.green;
       case 'chat':
         return Colors.blue;
+      case 'gift':
+        return Colors.purple;
       default:
         return const Color(0xFFB71C1C);
     }

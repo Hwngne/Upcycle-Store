@@ -143,18 +143,24 @@ class _ParticipantsListPageState extends State<ParticipantsListPage> {
                             ),
                             subtitle: Builder(
                               builder: (context) {
-                                String code = (p['studentCode'] ?? "")
+                                String rawCode = (p['studentCode'] ?? "")
                                     .toString();
                                 String email = (p['email'] ?? "").toString();
 
+                                // Chuyển về in hoa và xóa khoảng trắng thừa để so sánh
+                                String codeToCheck = rawCode
+                                    .trim()
+                                    .toUpperCase();
+
                                 // Nếu MSSV trống hoặc bằng "N/A", chỉ hiển thị Email
-                                if (code.isEmpty || code == "N/A") {
+                                if (codeToCheck.isEmpty ||
+                                    codeToCheck == "N/A") {
                                   return Text(email);
                                 }
 
                                 // Nếu có MSSV hợp lệ, hiển thị cả hai
                                 return Text(
-                                  "$code • $email",
+                                  "$rawCode • $email",
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 );

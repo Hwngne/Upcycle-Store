@@ -120,6 +120,15 @@ class _EventManagementPageState extends State<EventManagementPage> {
     return "${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}";
   }
 
+  String _formatCurrency(dynamic amount) {
+    if (amount == null) return "0";
+    double val = double.tryParse(amount.toString()) ?? 0;
+    return val.toInt().toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]}.',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -290,7 +299,7 @@ class _EventManagementPageState extends State<EventManagementPage> {
 
     String priceText = "Miễn phí";
     if (event['isPaid'] == true) {
-      priceText = "${event['price'] ?? 0} VND";
+      priceText = "${_formatCurrency(event['price'])}VNĐ";
     }
 
     String promoStatusText = "Chưa đăng ký";
